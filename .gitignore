@@ -1,1 +1,16 @@
+# Python
 .venv/
+__pycache__/
+*.pyc
+
+# Terraform
+**/.terraform/
+**/.terraform.lock.hcl
+**/tfplan
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/builds/
+
+# Secrets
+*.env
+.env.*

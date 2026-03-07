@@ -1,0 +1,105 @@
+name: Multitenant Platform Pipeline
+
+# Triggers automatically when anyone publishes a GitHub Release.
+# The zip file must be attached as a release asset.
+on:
+  release:
+    types: [published]
+
+jobs:
+  deploy:
+    name: Provision Infra & Process File
+    runs-on: ubuntu-latest
+
+    env:
+      TF_VAR_statefile_bucket_name: ${{ secrets.STATEFILE_BUCKET_NAME }}
+      TF_VAR_statefile_bucket_region: ${{ secrets.STATEFILE_BUCKET_REGION }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      TF_VAR_aws_region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Validate release has exactly one zip asset ──────────────────────────
+      - name: Check release asset
+        id: asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ASSETS=$(gh release view "${{ github.event.release.tag_name }}" --json assets -q '.assets')
+          COUNT=$(echo "$ASSETS" | jq '[.[] | select(.name | endswith(".zip"))] | length')
+
+          if [ "$COUNT" -eq 0 ]; then
+            echo "ERROR: No .zip file found in release assets."
+            exit 1
+          fi
+          if [ "$COUNT" -gt 1 ]; then
+            echo "ERROR: More than one .zip file attached. Please attach only one."
+            exit 1
+          fi
+
+          ZIP_NAME=$(echo "$ASSETS" | jq -r '[.[] | select(.name | endswith(".zip"))][0].name')
+          ZIP_URL=$(echo "$ASSETS" | jq -r '[.[] | select(.name | endswith(".zip"))][0].url')
+
+          echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
+          echo "zip_url=$ZIP_URL"   >> $GITHUB_OUTPUT
+          echo "Found zip: $ZIP_NAME"
+
+      # ── Download zip from release assets ───────────────────────────────────
+      - name: Download zip asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "${{ github.event.release.tag_name }}" \
+            --pattern "*.zip" \
+            --output "${{ steps.asset.outputs.zip_name }}"
+          echo "Downloaded: ${{ steps.asset.outputs.zip_name }}"
+
+      # ── Terraform ───────────────────────────────────────────────────────────
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.0
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: infra/environments/dev
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.STATEFILE_BUCKET_NAME }}" \
+            -backend-config="region=${{ secrets.STATEFILE_BUCKET_REGION }}"
+
+      - name: Terraform Validate
+        working-directory: infra/environments/dev
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: infra/environments/dev
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: infra/environments/dev
+        run: terraform apply -auto-approve tfplan
+
+      # ── Upload to S3 & invoke Lambda ────────────────────────────────────────
+      - name: Upload zip to S3
+        run: |
+          BUCKET=$(terraform -chdir=infra/environments/dev output -raw upload_bucket_name)
+          FILE="${{ steps.asset.outputs.zip_name }}"
+          echo "Uploading $FILE to s3://$BUCKET/uploads/"
+          aws s3 cp "$FILE" "s3://$BUCKET/uploads/$FILE"
+
+      - name: Invoke processor Lambda
+        run: |
+          FUNCTION=$(terraform -chdir=infra/environments/dev output -raw processor_function_name)
+          FILE_KEY="uploads/${{ steps.asset.outputs.zip_name }}"
+          echo "Invoking: $FUNCTION  key: $FILE_KEY"
+          aws lambda invoke \
+            --function-name "$FUNCTION" \
+            --payload "{\"file_key\": \"$FILE_KEY\"}" \
+            --cli-binary-format raw-in-base64-out \
+            response.json
+          echo "Lambda response:"
+          cat response.json

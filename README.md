@@ -1,18 +1,49 @@
 # multitenant-platform
 
-## AWS Admin:
+## Overview
 
-one time task:
+A shared platform where technical person submit zip files for processing. Each run provisions infra, uploads the file, processes it via Lambda, and audits results in DynamoDB.
 
-- Already created a group with permissions:
-  - group: multitenant-platform-company-developers
+## AWS Admin (one-time setup)
 
-- Admin already created S3 bucket for backend state file
+- Created group `multitenant-platform-company-developers` (add least-privilege permissions — see below)
+- Created S3 bucket for Terraform state: `multitenant-platform-terraform-statefiles` in `us-east-1`
+- Added GitHub repo secrets: `STATEFILE_BUCKET_NAME`, `STATEFILE_BUCKET_REGION`
 
-  ```
-  bucket = "multitenant-platform-terraform-statefiles"
-  region = "us-east-1"
-  ```
+**Minimum IAM permissions for the group**
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:*"],
+      "Resource": "arn:aws:s3:::multitenant-platform-*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["dynamodb:*"],
+      "Resource": "arn:aws:dynamodb:*:*:table/multitenant-platform-*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["lambda:*"],
+      "Resource": "arn:aws:lambda:*:*:function:multitenant-platform-*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["iam:*"],
+      "Resource": "arn:aws:iam::*:role/multitenant-platform-*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["logs:*"],
+      "Resource": "arn:aws:logs:*:*:*"
+    }
+  ]
+}
+```
 
 - In GitHub Repo settings, **Actions secrets and variables** section created the below secrets.
 
@@ -22,7 +53,7 @@ one time task:
 
 Upon the request, admin
 
-- Will create user based on the request:
+- Will create user based on the request
 
   Example:
   - user: multitenant-platform-company-pavan
@@ -30,19 +61,32 @@ Upon the request, admin
   - "created Access keys" to user for creating AWS services using AWS CLI
   - The AWS Security credentials will shared to developer
 
-## Developers / Data scientists (technical people)
+## Developers / Data scientists (how to run)
 
-To trigger the pipeline, technical person need the information from the AWS Admin/Cloud admin. Contact could admin asking the following details
+### Prerequisites
 
-    Technical person need to make request:
+You need from the AWS Admin (Contact could admin asking the following details):
+
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_DEFAULT_REGION`
+
+  Technical person need to make request:
 
         I am  <name> and <company> <your role> and  <project>. What kind of support he/her need?
 
+### Run the pipeline
 
-    Asking details:
+1. Go to **Actions** → **Multitenant Platform Pipeline** → **Run workflow**
+2. Enter the path to your zip file in the repo (e.g. `data/mymodel.zip`)
+3. Click **Run workflow**
 
-        - AWS Security credentials (Access key ID, Secret access key)
-        - AWS Region for resources
+The pipeline will:
+
+1. Provision infrastructure (S3 bucket, Lambda, DynamoDB) via Terraform
+2. Upload your zip file to S3
+3. Trigger the Lambda to validate and process the file
+4. Store the audit record in DynamoDB
 
 Response from Admin:
 
