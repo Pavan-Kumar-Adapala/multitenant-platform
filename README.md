@@ -79,6 +79,18 @@ GitHub Actions
       "Action": ["ecr:*"],
       "Resource": "*"
     }
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateSecurityGroup",
+        "ec2:DeleteSecurityGroup",
+        "ec2:AuthorizeSecurityGroupEgress",
+        "ec2:RevokeSecurityGroupEgress",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeSecurityGroupRules"
+      ],
+      "Resource": "*"
+    }
   ]
 }
 ```
@@ -108,8 +120,7 @@ You need from the AWS Admin (Contact could admin asking the following details):
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 - `AWS_DEFAULT_REGION`
-
-  Technical person need to make request:
+- Technical person need to make request:
 
         I am  <name> and <company> <your role> and  <project>. What kind of support he/her need?
 

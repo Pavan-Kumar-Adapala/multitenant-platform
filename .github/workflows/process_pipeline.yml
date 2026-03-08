@@ -15,6 +15,8 @@ jobs:
       TF_VAR_statefile_bucket_name: ${{ secrets.STATEFILE_BUCKET_NAME }}
       TF_VAR_statefile_bucket_region: ${{ secrets.STATEFILE_BUCKET_REGION }}
       TF_VAR_aws_region: ${{ secrets.AWS_DEFAULT_REGION }}
+      TF_VAR_vpc_id: ${{ secrets.VPC_ID }}
+      TF_VAR_subnet_id: ${{ secrets.SUBNET_ID }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}

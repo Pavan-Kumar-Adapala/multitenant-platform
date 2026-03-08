@@ -32,3 +32,15 @@ variable "environment" {
   description = "Deployment environment"
   type        = string
 }
+
+# --------- Networking (provided by admin) ----------
+
+variable "vpc_id" {
+  description = "VPC ID where the ECS security group will be created (use default VPC)"
+  type        = string
+}
+
+variable "subnet_id" {
+  description = "Subnet ID for ECS Fargate tasks (must be in the above VPC)"
+  type        = string
+}
