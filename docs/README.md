@@ -1,29 +1,44 @@
 # Deployment & Testing Guide
 
-Created a pipeline, this pipeline will provide platform with necessary resources: (no changes required)
+This guide walks through deploying the Multitenant Platform from scratch and verifying that every stage of the pipeline completes successfully.
 
-1. Provision all AWS infrastructure via Terraform
-2. Build and push the processor Docker image to ECR
-3. Upload your zip to S3 (tagged with your GitHub org as `organization-id`)
-4. S3 event auto-triggers Lambda validator
-5. Lambda validates and launches an ECS Fargate task
-6. Audit records written to DynamoDB at every step
+![Releases](../SystemArchitecture.png)
 
-## Depolyment
+---
 
-### Inside AWS
+## Prerequisites
 
-Login into AWS console with admin user credentials:
+Before running the pipeline, you need credentials and network details from the AWS admin. Contact the admin stating your name, role, and project — they will provision an IAM user and share the following:
 
-#### One time tasks at the beginning of the Project
+| Credential              | Description                                  |
+| ----------------------- | -------------------------------------------- |
+| `AWS_ACCESS_KEY_ID`     | IAM user access key                          |
+| `AWS_SECRET_ACCESS_KEY` | IAM user secret key                          |
+| `AWS_DEFAULT_REGION`    | Target AWS region (e.g. `us-east-1`)         |
+| `VPC_ID`                | VPC where ECS security group will be created |
+| `SUBNET_ID`             | Public subnet for Fargate task networking    |
 
-- Create S3 bucket for Terraform state: `multitenant-platform-terraform-statefiles` in `us-east-1`
+---
 
-  Note: if you want to use differnet names than update in GitHub Repository Secrets (Settings → Secrets and variables → Actions)
+## Part 1 — AWS Admin Setup (One Time)
 
-- In IAM Create group with name `multitenant-platform-company-developers` and below permissions
+> Skip this section if the admin has already completed setup for the project.
 
-Minimum IAM permissions for the group
+### 1.1 Create the Terraform State Bucket
+
+In the AWS Console (or CLI), create an S3 bucket to store Terraform state files:
+
+- **Name:** `multitenant-platform-terraform-statefiles`
+- **Region:** `us-east-1`
+- **Versioning:** enabled
+
+> If you use a different name, update the `STATEFILE_BUCKET_NAME` secret in GitHub accordingly.
+
+### 1.2 Create the Developer IAM Group
+
+1. Go to **IAM → User groups → Create group**
+2. Name: `multitenant-platform-company-developers`
+3. Attach the inline policy below
 
 ```json
 {
@@ -32,7 +47,7 @@ Minimum IAM permissions for the group
     {
       "Effect": "Allow",
       "Action": ["s3:*"],
-      "Resource": "arn:aws:s3:::multitenant-platform-*" // if the Terraform statefile bucket name format different, than include in resource
+      "Resource": "arn:aws:s3:::multitenant-platform-*"
     },
     {
       "Effect": "Allow",
@@ -63,7 +78,7 @@ Minimum IAM permissions for the group
       "Effect": "Allow",
       "Action": ["ecr:*"],
       "Resource": "*"
-    }
+    },
     {
       "Effect": "Allow",
       "Action": [
@@ -80,102 +95,122 @@ Minimum IAM permissions for the group
 }
 ```
 
-Create Service Linked Role for ECS (AWSServiceRoleForECS):
+> **Common mistake:** Ensure every object in the `Statement` array is separated by a comma. A missing comma between Statement blocks is a silent parse error in the AWS Console.
 
-    Go to IAM → Roles → Create role
+### 1.3 Create the ECS Service-Linked Role
 
-    Select AWS service
+ECS requires a service-linked role to manage Fargate tasks. Create it once per AWS account.
 
-    Under "Use case" search for Elastic Container Service
+**Via AWS Console:**
 
-    Select Elastic Container Service (not ECS Task)
+1. IAM → Roles → Create role
+2. Select **AWS service**
+3. Search for **Elastic Container Service** → select **Elastic Container Service** (not ECS Task)
+4. Click Next through the rest, then Create role
 
-    Click Next through the rest and Create role
+**Via CLI:**
 
-or
-
+```bash
 aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com
+```
 
-#### Repetitive task of cloud admin (New employ want to use the platform and will send request to cloud admin)
+### 1.4 Provision a Developer User
 
-- Create a user and add the user to the group (multitenant-platform-company-developers)
-- Create access keys (Access key ID, Secret access key) to the user
-- Send user details, access keys file, aws default region to the user
+For each new user:
 
-  From your AWS Admin, user get:
-  - `AWS_ACCESS_KEY_ID`
-  - `AWS_SECRET_ACCESS_KEY`
-  - `AWS_DEFAULT_REGION`
-  - `VPC_ID`
-  - `SUBNET_ID`
-
-### Inside GitHub
-
-Assume you are working in orgnization as a developer and you want to use this platform to process the zip file. You need to send the request to cloud admin. The admin will share the below key details:
-
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `AWS_DEFAULT_REGION`
-- `VPC_ID`
-- `SUBNET_ID`
-
-As a developer you need Github repo access to add GitHub Repository Secrets
-
-Repository (Settings → Secrets and variables → Actions):
-
-| Secret                  | Value      |
-| ----------------------- | ---------- |
-| `AWS_ACCESS_KEY_ID`     | From admin |
-| `AWS_SECRET_ACCESS_KEY` | From admin |
-| `AWS_DEFAULT_REGION`    | From admin |
-| `VPC_ID`                | From admin |
-| `SUBNET_ID`             | From admin |
-
-Note:
-It is not a best appraoch. I will find better options in future.
+1. **IAM → Users → Create user** — name: `multitenant-platform-company-<name>`
+2. Add the user to the `multitenant-platform-company-developers` group
+3. **Security credentials → Create access key** — select "Application running outside AWS"
+4. Download the credentials CSV and share it securely with the developer
+5. Also share the AWS region, VPC ID, and a public Subnet ID
 
 ---
 
-## Testing
+## Part 2 — GitHub Repository Setup
 
-After updating GitHub Repository Secrets using the information from the cloud admin, you can test the platform by following below steps;
+### 2.1 Add Repository Secrets
 
-### Step 1 — Prepare your zip file / Use available zip file
+Go to **Settings → Secrets and variables → Actions → New repository secret** and add each of the following:
 
-Any `.zip` file works. For testing, create a simple one:
+| Secret                    | Value                                       |
+| ------------------------- | ------------------------------------------- |
+| `AWS_ACCESS_KEY_ID`       | From admin                                  |
+| `AWS_SECRET_ACCESS_KEY`   | From admin                                  |
+| `AWS_DEFAULT_REGION`      | From admin (e.g. `us-east-1`)               |
+| `VPC_ID`                  | From admin                                  |
+| `SUBNET_ID`               | From admin                                  |
+| `STATEFILE_BUCKET_NAME`   | `multitenant-platform-terraform-statefiles` |
+| `STATEFILE_BUCKET_REGION` | `us-east-1`                                 |
+
+### 2.2 Update Terraform Variables
+
+Edit `infra/environments/dev/terraform.tfvars` and replace the placeholder VPC and subnet values with those provided by the admin:
+
+```hcl
+aws_region   = "us-east-1"
+project_name = "multitenant-platform"
+environment  = "dev"
+
+vpc_id    = "vpc-xxxxxxxxxxxxxxx"    # your VPC ID
+subnet_id = "subnet-xxxxxxxxxxxxxxx" # a public subnet in that VPC
+```
+
+> **Terraform backend note:** The S3 backend block in `state.tf` does not support variable interpolation. The `bucket` and `region` values are injected at `terraform init` time via `-backend-config` flags. This is handled automatically by the pipeline using the `STATEFILE_BUCKET_NAME` and `STATEFILE_BUCKET_REGION` secrets — no manual action needed.
+
+---
+
+## Part 3 — Running the Pipeline
+
+### Step 1 — Prepare a zip file
+
+Any valid `.zip` file works. To create a minimal test file:
 
 ```bash
-echo "hello" > sample.txt
+echo "hello world" > sample.txt
 zip mydata.zip sample.txt
 ```
 
 ### Step 2 — Create a GitHub Release
 
-1. Go to your repo → **Releases** → **Draft a new release**
-2. Enter a tag (e.g. `v1.0.0`) and a title
-3. **Drag and drop your `.zip` file** into the assets area
-4. Click **Publish release**
+1. Go to your repository → **Releases** → **Draft a new release**
+2. Click **Choose a tag** and type a new tag (e.g. `v1.0.0`)
+3. Add a release title
+4. Drag and drop your `.zip` file into the **Assets** area at the bottom
+5. Click **Publish release**
+
+The **Multitenant Platform Pipeline** workflow starts automatically.
+
+> Only one `.zip` file may be attached per release. The pipeline will fail at Step 1 if zero or more than one zip is found.
+
+![Stages](../release_page.png)
 
 ### Step 3 — Monitor the workflow
 
-Go to **Actions** → **Multitenant Platform Pipeline** to watch progress.
+Go to **Actions → Multitenant Platform Pipeline** and click the running workflow.
 
-The pipeline runs these steps automatically:
+The pipeline executes these steps in order:
 
-1. Validates exactly one `.zip` is attached
-2. Provisions all AWS infrastructure via Terraform
-3. Builds and pushes Docker image to ECR
-4. Uploads zip to S3 with `organization-id` tag
-5. S3 event auto-triggers Lambda validator (no manual invoke)
-6. Lambda validates and launches ECS Fargate task
-7. Fargate container processes the zip and logs contents
-8. All steps audited in DynamoDB
+![Stages](../pipeline_stages.png)
+
+| Step | Name                      | What happens                                             |
+| ---- | ------------------------- | -------------------------------------------------------- |
+| 1/7  | Validate release asset    | Checks exactly one `.zip` is attached; extracts its URL  |
+| 2/7  | Download zip asset        | Downloads and renames the file for clean S3 keys         |
+| 3/7  | Terraform init/plan/apply | Provisions all AWS resources if not already present      |
+| 4/7  | Build & push Docker image | Builds `src/processor/` and pushes to ECR                |
+| 5/7  | Upload zip to S3          | Uploads file, sets `organization-id` tag from GitHub org |
+| 6/7  | Stream Lambda logs        | Waits 15s, then tails Lambda CloudWatch logs             |
+| 7/7  | ECS logs + audit trail    | Waits 45s, tails ECS logs, queries DynamoDB audit table  |
+
+> Steps 3 and 4 are idempotent. Re-running the pipeline on an already-provisioned environment is safe — Terraform will detect no changes and Docker will overwrite the `latest` image tag.
 
 ---
 
-## Verify the Audit Trail
+## Part 4 — Verifying the Results
 
-After the pipeline completes, query DynamoDB:
+### 4.1 Check the Audit Trail
+
+After the pipeline finishes, query DynamoDB directly:
 
 ```bash
 aws dynamodb query \
@@ -183,28 +218,50 @@ aws dynamodb query \
   --key-condition-expression "org_id = :oid" \
   --expression-attribute-values '{":oid":{"S":"<your-github-org>"}}' \
   --output table \
-  --query 'Items[*].{Event:event_type.S,Status:status.S,Details:details.S}'
+  --query 'Items[*].{Timestamp:timestamp.S,Event:event_type.S,Status:status.S,Details:details.S}'
 ```
 
-Expected audit trail:
+A successful run produces three records in order:
 
-| Details                                               | Event            | Status  | Timestamp                        |
-| ----------------------------------------------------- | ---------------- | ------- | -------------------------------- |
-| org-id=Pavan-Kumar-Adapala, size=123.45MB             | VALIDATED        | SUCCESS | 2026-03-08T11:56:28.590868+00:00 |
-| ECS task: 08c16929816e427988839a8e8ae9f0b4            | PROCESSING_START | SUCCESS | 2026-03-08T11:56:29.947394+00:00 |
-| Processed preprocessed_data.zip, 123.45 MB , 1 files  | COMPLETE         | SUCCESS | 2026-03-08T11:57:13.486721+00:00 |
-| org-id=Pavan-Kumar-Adapala , size=123.45MB            | VALIDATED        | SUCCESS | 2026-03-08T12:47:01.403881+00:00 |
-| ECS Fargate task: 9ba30a76e6f143cda986e95f951b679a    | PROCESSING_START | SUCCESS | 2026-03-08T12:47:02.762898+00:00 |
-| Processed preprocessed_data.zip , 123.45 MB , 1 files | COMPLETE         | SUCCESS | 2026-03-08T12:47:23.163448+00:00 |
+| Event              | Status  | Details                                  |
+| ------------------ | ------- | ---------------------------------------- |
+| `VALIDATED`        | SUCCESS | `org-id=<org>, size=<n>MB`               |
+| `PROCESSING_START` | SUCCESS | `ECS Fargate task: <task-id>`            |
+| `COMPLETE`         | SUCCESS | `Processed <file>.zip, <n>MB, <n> files` |
 
-View ECS logs in CloudWatch:
+If you see `VALIDATION_FAILED` or `ERROR`, check the `Details` column for the specific failure reason (e.g. missing tag, file too large).
 
+### 4.2 View Lambda Logs
+
+```bash
+aws logs tail /aws/lambda/multitenant-platform-dev-validator \
+  --since 10m \
+  --format short
 ```
-Log group: /ecs/multitenant-platform-dev-processor
+
+### 4.3 View ECS Container Logs
+
+```bash
+aws logs tail /ecs/multitenant-platform-dev-processor \
+  --since 10m \
+  --format short
 ```
 
 ---
 
 ## Teardown
 
-Go to Actions in GitHub and select **Destroy Infrastructure** workflow (destroy.yml). Run the workflow manually by clicking **Run Workflow**
+To destroy all provisioned AWS infrastructure:
+
+1. Go to **Actions** → select **Destroy Infrastructure**
+2. Click **Run workflow → Run workflow**
+
+The workflow runs `terraform destroy -auto-approve`, which removes all resources created by Terraform including the S3 upload bucket, Lambda function, ECS cluster, ECR repository, DynamoDB table, IAM roles, and security group.
+
+> The S3 upload bucket is configured with `force_destroy = true`. All objects inside it are permanently deleted without a confirmation prompt. Back up any files you need before running teardown.
+
+**Resources not managed by Terraform** (must be deleted manually if no longer needed):
+
+- The Terraform state S3 bucket (`multitenant-platform-terraform-statefiles`)
+- The IAM group (`multitenant-platform-company-developers`)
+- Any IAM users provisioned by the admin

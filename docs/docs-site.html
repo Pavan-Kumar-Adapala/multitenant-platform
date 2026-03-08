@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multitenant Platform — Documentation</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --accent: #3b82f6;
+    --accent2: #06b6d4;
+    --accent3: #10b981;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --text-muted: #64748b;
+    --text-dim: #94a3b8;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  /* ── Nav ── */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,14,26,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex; align-items: center; gap: 2rem; height: 56px;
+  }
+  nav .logo {
+    font-family: var(--mono); font-size: 13px; font-weight: 600;
+    color: var(--accent2); letter-spacing: 0.1em; white-space: nowrap;
+  }
+  nav .logo span { color: var(--text-muted); }
+  nav a {
+    color: var(--text-dim); text-decoration: none; font-size: 13px;
+    font-weight: 500; letter-spacing: 0.03em;
+    transition: color .2s; white-space: nowrap;
+  }
+  nav a:hover { color: var(--accent2); }
+  nav .badge {
+    margin-left: auto; background: #052e16; color: var(--accent3);
+    border: 1px solid #166534; border-radius: 20px;
+    font-size: 11px; font-family: var(--mono); padding: 2px 10px;
+  }
+
+  /* ── Layout ── */
+  .page { max-width: 1100px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+
+  /* ── Hero ── */
+  .hero {
+    padding: 4rem 0 3rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4rem;
+  }
+  .hero-tag {
+    font-family: var(--mono); font-size: 11px; color: var(--accent);
+    letter-spacing: .15em; text-transform: uppercase; margin-bottom: 1rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .hero-tag::before {
+    content: ''; display: inline-block; width: 20px; height: 1px; background: var(--accent);
+  }
+  .hero h1 {
+    font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 700; letter-spacing: -0.03em;
+    line-height: 1.1; margin-bottom: 1.2rem;
+  }
+  .hero h1 .hl { color: var(--accent2); }
+  .hero p {
+    color: var(--text-dim); max-width: 640px; font-size: 16px; margin-bottom: 2rem;
+  }
+  .pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pill {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 20px; padding: 4px 14px; font-size: 12px;
+    font-family: var(--mono); color: var(--text-dim);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .dot-blue { background: var(--accent); }
+  .dot-cyan { background: var(--accent2); }
+  .dot-green { background: var(--accent3); }
+  .dot-amber { background: var(--warn); }
+
+  /* ── Section headers ── */
+  .section { margin-bottom: 5rem; }
+  .section-header {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 2rem; padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-num {
+    font-family: var(--mono); font-size: 11px; color: var(--accent);
+    background: rgba(59,130,246,.1); border: 1px solid rgba(59,130,246,.2);
+    border-radius: 4px; padding: 2px 8px; letter-spacing: .08em;
+  }
+  .section-header h2 {
+    font-size: 1.4rem; font-weight: 600; letter-spacing: -0.02em;
+  }
+
+  /* ── Info boxes ── */
+  .callout {
+    border-radius: 8px; padding: 1rem 1.2rem; margin: 1.5rem 0;
+    border-left: 3px solid; display: flex; gap: 10px; align-items: flex-start;
+    font-size: 14px;
+  }
+  .callout-warn { background: rgba(245,158,11,.06); border-color: var(--warn); color: #fcd34d; }
+  .callout-info { background: rgba(59,130,246,.06); border-color: var(--accent); color: #93c5fd; }
+  .callout-ok   { background: rgba(16,185,129,.06); border-color: var(--accent3); color: #6ee7b7; }
+  .callout-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+  /* ── Code ── */
+  pre {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1.2rem; overflow-x: auto;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.6;
+    color: #a5f3fc; margin: 1rem 0;
+  }
+  code {
+    font-family: var(--mono); font-size: 12.5px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 3px; padding: 1px 5px; color: var(--accent2);
+  }
+
+  /* ── Tables ── */
+  .tbl-wrap { overflow-x: auto; margin: 1.2rem 0; border-radius: 8px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th {
+    background: var(--surface2); color: var(--text-dim); font-weight: 600;
+    font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+    padding: .7rem 1rem; text-align: left; border-bottom: 1px solid var(--border);
+  }
+  td { padding: .65rem 1rem; border-bottom: 1px solid var(--border); color: var(--text-dim); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+  td code { font-size: 12px; }
+  .tag-green { color: var(--accent3); font-weight: 600; }
+  .tag-blue  { color: var(--accent);  font-weight: 600; }
+  .tag-amber { color: var(--warn);    font-weight: 600; }
+
+  /* ── Step list ── */
+  .steps { display: flex; flex-direction: column; gap: 0; margin: 1.5rem 0; }
+  .step {
+    display: flex; gap: 1.2rem; position: relative; padding-bottom: 1.8rem;
+  }
+  .step:last-child { padding-bottom: 0; }
+  .step-line {
+    display: flex; flex-direction: column; align-items: center; flex-shrink: 0;
+  }
+  .step-num {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--surface2);
+    border: 2px solid var(--accent); color: var(--accent);
+    font-family: var(--mono); font-size: 12px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .step-connector {
+    width: 1px; background: var(--border); flex: 1; margin-top: 4px;
+  }
+  .step:last-child .step-connector { display: none; }
+  .step-content { flex: 1; padding-top: 4px; }
+  .step-title { font-weight: 600; color: var(--text); margin-bottom: .3rem; font-size: 14px; }
+  .step-desc { color: var(--text-dim); font-size: 13.5px; }
+
+  /* ── Architecture SVG diagrams ── */
+  .diagram-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 2rem; margin: 1.5rem 0;
+    overflow-x: auto;
+  }
+  .diagram-title {
+    font-family: var(--mono); font-size: 11px; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: .1em; margin-bottom: 1.5rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .diagram-title::before {
+    content:''; width:16px; height:1px; background: var(--border);
+  }
+  svg text { font-family: 'IBM Plex Mono', monospace; }
+
+  /* ── Grid cards ── */
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin: 1.2rem 0; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1.2rem;
+  }
+  .card-icon { font-size: 22px; margin-bottom: .6rem; }
+  .card-title { font-weight: 600; font-size: 14px; margin-bottom: .4rem; }
+  .card-body { color: var(--text-dim); font-size: 13px; }
+
+  /* ── Two-col ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin: 1.2rem 0; }
+  @media(max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+
+  p { color: var(--text-dim); margin-bottom: .8rem; }
+  ul, ol { color: var(--text-dim); padding-left: 1.4rem; margin-bottom: .8rem; }
+  li { margin-bottom: .3rem; font-size: 14px; }
+  h3 { font-size: 1rem; font-weight: 600; color: var(--text); margin: 1.2rem 0 .6rem; }
+
+  /* ── Footer ── */
+  footer {
+    text-align: center; padding: 2rem;
+    color: var(--text-muted); font-size: 12px; font-family: var(--mono);
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">MULTITENANT<span>/</span>PLATFORM</div>
+  <a href="#overview">Overview</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#deploy">Deploy</a>
+  <a href="#pipeline">Pipeline</a>
+  <a href="#hybrid">Hybrid</a>
+  <a href="#security">Security</a>
+  <a href="#teardown">Teardown</a>
+  <span class="badge">v1.0 · AWS</span>
+</nav>
+
+<div class="page">
+
+  <!-- ── HERO ── -->
+  <section class="hero" id="overview">
+    <div class="hero-tag">Technical Documentation</div>
+    <h1>Multitenant Platform<br><span class="hl">Secure Data Orchestration</span></h1>
+    <p>A shared platform where technical teams submit zip files for automated processing. Each run provisions infrastructure, validates via Lambda, processes via ECS Fargate, and audits every step in DynamoDB.</p>
+    <div class="pill-row">
+      <span class="pill"><span class="dot dot-cyan"></span>AWS S3 · ECR · Lambda</span>
+      <span class="pill"><span class="dot dot-blue"></span>ECS Fargate · DynamoDB</span>
+      <span class="pill"><span class="dot dot-green"></span>Terraform IaC</span>
+      <span class="pill"><span class="dot dot-amber"></span>GitHub Actions CI/CD</span>
+      <span class="pill"><span class="dot dot-cyan"></span>Python 3.12</span>
+    </div>
+  </section>
+
+  <!-- ── SECTION 1: ARCHITECTURE ── -->
+  <section class="section" id="architecture">
+    <div class="section-header">
+      <span class="section-num">01</span>
+      <h2>System Architecture</h2>
+    </div>
+
+    <p>The platform follows an event-driven serverless pattern. A GitHub release triggers the full pipeline — from infrastructure provisioning to data processing and audit.</p>
+
+    <!-- Main Architecture Diagram -->
+    <div class="diagram-card">
+      <div class="diagram-title">End-to-end system flow</div>
+      <svg width="100%" viewBox="0 0 900 520" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#3b82f6"/>
+          </marker>
+          <marker id="arr2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#64748b"/>
+          </marker>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="2" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+
+        <!-- GitHub Actions box -->
+        <rect x="20" y="20" width="160" height="60" rx="8" fill="#111827" stroke="#1e3a5f" stroke-width="1.5"/>
+        <text x="100" y="45" text-anchor="middle" fill="#93c5fd" font-size="11" font-weight="600">GitHub Actions</text>
+        <text x="100" y="62" text-anchor="middle" fill="#475569" font-size="10">Release trigger</text>
+
+        <!-- Terraform -->
+        <rect x="220" y="20" width="140" height="60" rx="8" fill="#111827" stroke="#1e3a5f" stroke-width="1.5"/>
+        <text x="290" y="45" text-anchor="middle" fill="#93c5fd" font-size="11" font-weight="600">Terraform</text>
+        <text x="290" y="62" text-anchor="middle" fill="#475569" font-size="10">Provision infra</text>
+
+        <!-- ECR -->
+        <rect x="400" y="20" width="120" height="60" rx="8" fill="#111827" stroke="#1e3a5f" stroke-width="1.5"/>
+        <text x="460" y="45" text-anchor="middle" fill="#93c5fd" font-size="11" font-weight="600">Amazon ECR</text>
+        <text x="460" y="62" text-anchor="middle" fill="#475569" font-size="10">Docker image</text>
+
+        <!-- S3 Bucket -->
+        <rect x="560" y="20" width="140" height="60" rx="8" fill="#0f172a" stroke="#1e3a5f" stroke-width="2"/>
+        <text x="630" y="38" text-anchor="middle" fill="#38bdf8" font-size="11" font-weight="600">S3 Bucket</text>
+        <text x="630" y="54" text-anchor="middle" fill="#475569" font-size="10">uploads/</text>
+        <text x="630" y="68" text-anchor="middle" fill="#10b981" font-size="9">encrypted · private</text>
+
+        <!-- Arrows top row -->
+        <line x1="180" y1="50" x2="218" y2="50" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)"/>
+        <line x1="360" y1="50" x2="398" y2="50" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)"/>
+        <line x1="520" y1="50" x2="558" y2="50" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)"/>
+
+        <!-- S3 down to Lambda -->
+        <line x1="630" y1="80" x2="630" y2="148" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)"/>
+        <text x="640" y="120" fill="#3b82f6" font-size="9">S3 PutObject</text>
+        <text x="640" y="132" fill="#3b82f6" font-size="9">event trigger</text>
+
+        <!-- Lambda box -->
+        <rect x="490" y="150" width="280" height="80" rx="8" fill="#0f172a" stroke="#7c3aed" stroke-width="2"/>
+        <text x="630" y="178" text-anchor="middle" fill="#c4b5fd" font-size="12" font-weight="600">Lambda Validator</text>
+        <text x="630" y="196" text-anchor="middle" fill="#64748b" font-size="10">① Read org-id tag from S3</text>
+        <text x="630" y="210" text-anchor="middle" fill="#64748b" font-size="10">② Validate size / content-type</text>
+        <text x="630" y="224" text-anchor="middle" fill="#64748b" font-size="10">③ Write VALIDATED → DynamoDB</text>
+
+        <!-- Lambda to DynamoDB -->
+        <line x1="490" y1="210" x2="362" y2="210" stroke="#64748b" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+        <!-- DynamoDB -->
+        <rect x="200" y="170" width="160" height="80" rx="8" fill="#0f172a" stroke="#065f46" stroke-width="2"/>
+        <text x="280" y="198" text-anchor="middle" fill="#6ee7b7" font-size="12" font-weight="600">DynamoDB</text>
+        <text x="280" y="214" text-anchor="middle" fill="#64748b" font-size="10">Audit table</text>
+        <text x="280" y="228" text-anchor="middle" fill="#64748b" font-size="10">org_id · event_sk</text>
+        <text x="280" y="242" text-anchor="middle" fill="#10b981" font-size="9">encrypted · PITR enabled</text>
+
+        <!-- Lambda to ECS -->
+        <line x1="630" y1="230" x2="630" y2="298" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)"/>
+        <text x="640" y="268" fill="#3b82f6" font-size="9">ecs:RunTask</text>
+
+        <!-- ECS Fargate -->
+        <rect x="470" y="300" width="320" height="100" rx="8" fill="#0f172a" stroke="#0369a1" stroke-width="2"/>
+        <text x="630" y="326" text-anchor="middle" fill="#7dd3fc" font-size="12" font-weight="600">ECS Fargate Task</text>
+        <text x="630" y="344" text-anchor="middle" fill="#64748b" font-size="10">data-processor container (Python)</text>
+        <text x="630" y="360" text-anchor="middle" fill="#64748b" font-size="10">① Download zip from S3</text>
+        <text x="630" y="374" text-anchor="middle" fill="#64748b" font-size="10">② Log contents / stats</text>
+        <text x="630" y="388" text-anchor="middle" fill="#64748b" font-size="10">③ Write COMPLETE → DynamoDB</text>
+
+        <!-- ECS to DynamoDB -->
+        <line x1="470" y1="350" x2="362" y2="280" stroke="#64748b" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+        <!-- ECS to ECR pull (dashed) -->
+        <line x1="490" y1="310" x2="460" y2="80" stroke="#1e3a5f" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arr2)"/>
+        <text x="458" y="200" fill="#334155" font-size="9">image pull</text>
+
+        <!-- CloudWatch -->
+        <rect x="200" y="300" width="220" height="60" rx="8" fill="#111827" stroke="#1e3a5f" stroke-width="1.5"/>
+        <text x="310" y="326" text-anchor="middle" fill="#94a3b8" font-size="11" font-weight="600">CloudWatch Logs</text>
+        <text x="310" y="344" text-anchor="middle" fill="#475569" font-size="10">/ecs/…-processor · /aws/lambda/…</text>
+
+        <!-- ECS to CloudWatch -->
+        <line x1="470" y1="370" x2="422" y2="350" stroke="#334155" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arr2)"/>
+        <line x1="490" y1="240" x2="420" y2="318" stroke="#334155" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arr2)"/>
+
+        <!-- IAM label -->
+        <rect x="20" y="150" width="150" height="60" rx="8" fill="#111827" stroke="#292524" stroke-width="1.5"/>
+        <text x="95" y="176" text-anchor="middle" fill="#d6d3d1" font-size="11" font-weight="600">IAM Roles</text>
+        <text x="95" y="192" text-anchor="middle" fill="#475569" font-size="10">Least-privilege</text>
+        <text x="95" y="206" text-anchor="middle" fill="#475569" font-size="10">Lambda · ECS · Task</text>
+
+        <!-- Legend -->
+        <rect x="20" y="420" width="420" height="80" rx="6" fill="none" stroke="#1e2d45" stroke-width="1"/>
+        <text x="36" y="440" fill="#475569" font-size="10" font-weight="600">LEGEND</text>
+        <line x1="36" y1="458" x2="70" y2="458" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)"/>
+        <text x="78" y="462" fill="#64748b" font-size="10">Primary data flow</text>
+        <line x1="180" y1="458" x2="214" y2="458" stroke="#64748b" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <text x="222" y="462" fill="#64748b" font-size="10">Audit write</text>
+        <line x1="310" y1="458" x2="344" y2="458" stroke="#1e3a5f" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arr2)"/>
+        <text x="352" y="462" fill="#64748b" font-size="10">Supporting call</text>
+
+        <rect x="36" y="472" width="10" height="10" rx="2" fill="#0f172a" stroke="#7c3aed" stroke-width="1.5"/>
+        <text x="54" y="482" fill="#64748b" font-size="10">Serverless</text>
+        <rect x="130" y="472" width="10" height="10" rx="2" fill="#0f172a" stroke="#0369a1" stroke-width="1.5"/>
+        <text x="148" y="482" fill="#64748b" font-size="10">Container</text>
+        <rect x="230" y="472" width="10" height="10" rx="2" fill="#0f172a" stroke="#065f46" stroke-width="1.5"/>
+        <text x="248" y="482" fill="#64748b" font-size="10">Database</text>
+        <rect x="330" y="472" width="10" height="10" rx="2" fill="none" stroke="#1e3a5f" stroke-width="1.5"/>
+        <text x="348" y="482" fill="#64748b" font-size="10">Supporting</text>
+      </svg>
+    </div>
+
+    <!-- Component Summary -->
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🪣</div>
+        <div class="card-title">S3 Upload Bucket</div>
+        <div class="card-body">Private, encrypted (AES-256). Receives <code>.zip</code> uploads tagged with <code>organization-id</code>. PutObject events auto-trigger Lambda.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <div class="card-title">Lambda Validator</div>
+        <div class="card-body">Python 3.12. Reads org-id tag, validates file size (&lt;500MB) and content-type. Writes audit record then fires ECS task.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🐳</div>
+        <div class="card-title">ECS Fargate Processor</div>
+        <div class="card-body">Containerised Python. Downloads zip from S3, logs contents and metadata, writes <code>COMPLETE</code> audit record to DynamoDB.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📋</div>
+        <div class="card-title">DynamoDB Audit Table</div>
+        <div class="card-body">PAY_PER_REQUEST. PK: <code>org_id</code>. SK: <code>timestamp#event_type</code>. PITR enabled. Every transition is immutably recorded.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SECTION 2: PRE-REQUISITES ── -->
+  <section class="section" id="deploy">
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <h2>Deployment Guide</h2>
+    </div>
+
+    <h3>One-Time AWS Admin Setup</h3>
+    <p>These steps are performed once per project by the AWS admin. They create the shared foundation all developers rely on.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-line"><div class="step-num">1</div><div class="step-connector"></div></div>
+        <div class="step-content">
+          <div class="step-title">Create S3 Bucket for Terraform State</div>
+          <div class="step-desc">Create bucket <code>multitenant-platform-terraform-statefiles</code> in <code>us-east-1</code> with versioning enabled. This stores Terraform state files securely.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-line"><div class="step-num">2</div><div class="step-connector"></div></div>
+        <div class="step-content">
+          <div class="step-title">Create IAM Group and Minimum Permissions</div>
+          <div class="step-desc">Create group <code>multitenant-platform-company-developers</code>. Attach the least-privilege policy below. All platform users are added to this group.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-line"><div class="step-num">3</div><div class="step-connector"></div></div>
+        <div class="step-content">
+          <div class="step-title">Create ECS Service-Linked Role</div>
+          <div class="step-desc">IAM → Roles → Create role → AWS service → Elastic Container Service (not Task). Or via CLI:<br><code>aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com</code></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-line"><div class="step-num">4</div><div class="step-connector"></div></div>
+        <div class="step-content">
+          <div class="step-title">Provision Developer Users</div>
+          <div class="step-desc">For each developer: create IAM user → add to the group → generate Access Keys → share credentials securely. Also provide <code>VPC_ID</code> and <code>SUBNET_ID</code>.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-warn">
+      <span class="callout-icon">⚠️</span>
+      <div><strong>IAM JSON syntax note:</strong> The policy below requires a comma between every Statement object. A missing comma between the ECR and EC2 blocks is a common mistake that will cause a silent parse error in the AWS Console.</div>
+    </div>
+
+    <pre>{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Effect": "Allow", "Action": ["s3:*"],
+      "Resource": "arn:aws:s3:::multitenant-platform-*" },
+    { "Effect": "Allow", "Action": ["dynamodb:*"],
+      "Resource": "arn:aws:dynamodb:*:*:table/multitenant-platform-*" },
+    { "Effect": "Allow", "Action": ["lambda:*"],
+      "Resource": "arn:aws:lambda:*:*:function:multitenant-platform-*" },
+    { "Effect": "Allow", "Action": ["iam:*"],
+      "Resource": "arn:aws:iam::*:role/multitenant-platform-*" },
+    { "Effect": "Allow", "Action": ["logs:*"],
+      "Resource": "arn:aws:logs:*:*:*" },
+    { "Effect": "Allow", "Action": ["ecs:*"],  "Resource": "*" },
+    { "Effect": "Allow", "Action": ["ecr:*"],  "Resource": "*" },
+    { "Effect": "Allow",
+      "Action": ["ec2:CreateSecurityGroup","ec2:DeleteSecurityGroup",
+                 "ec2:AuthorizeSecurityGroupEgress","ec2:RevokeSecurityGroupEgress",
+                 "ec2:DescribeSecurityGroups","ec2:DescribeSecurityGroupRules"],
+      "Resource": "*" }
+  ]
+}</pre>
+
+    <h3>GitHub Repository Secrets</h3>
+    <p>Each developer must set the following secrets in their fork at <strong>Settings → Secrets and variables → Actions</strong>:</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Secret</th><th>Source</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>AWS_ACCESS_KEY_ID</code></td><td class="tag-amber">From admin</td><td>Authenticate GitHub Actions runner to AWS</td></tr>
+          <tr><td><code>AWS_SECRET_ACCESS_KEY</code></td><td class="tag-amber">From admin</td><td>Authenticate GitHub Actions runner to AWS</td></tr>
+          <tr><td><code>AWS_DEFAULT_REGION</code></td><td class="tag-amber">From admin</td><td>Target AWS region (e.g. <code>us-east-1</code>)</td></tr>
+          <tr><td><code>VPC_ID</code></td><td class="tag-amber">From admin</td><td>VPC for ECS Fargate security group</td></tr>
+          <tr><td><code>SUBNET_ID</code></td><td class="tag-amber">From admin</td><td>Subnet for Fargate task networking</td></tr>
+          <tr><td><code>STATEFILE_BUCKET_NAME</code></td><td class="tag-blue">Admin or default</td><td>S3 bucket holding Terraform state</td></tr>
+          <tr><td><code>STATEFILE_BUCKET_REGION</code></td><td class="tag-blue">Admin or default</td><td>Region of the Terraform state bucket</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <span class="callout-icon">ℹ️</span>
+      <div><strong>Terraform backend note:</strong> Terraform S3 backend blocks do not support variable interpolation. The bucket and region values must be injected at <code>terraform init</code> time via <code>-backend-config</code> flags, which the pipeline handles automatically using the secrets above.</div>
+    </div>
+
+    <h3>Terraform Variable Defaults</h3>
+    <p>Edit <code>infra/environments/dev/terraform.tfvars</code> to set your VPC and subnet before the first run:</p>
+    <pre>aws_region   = "us-east-1"
+project_name = "multitenant-platform"
+environment  = "dev"
+vpc_id       = "vpc-xxxxxxxxxxxxxxx"   # your default VPC
+subnet_id    = "subnet-xxxxxxxxxxxxxxx" # a public subnet in that VPC</pre>
+  </section>
+
+  <!-- ── SECTION 3: PIPELINE ── -->
+  <section class="section" id="pipeline">
+    <div class="section-header">
+      <span class="section-num">03</span>
+      <h2>CI/CD Pipeline</h2>
+    </div>
+
+    <p>The pipeline triggers automatically on every GitHub Release that includes a <code>.zip</code> asset. It runs sequentially through 7 steps.</p>
+
+    <!-- Pipeline flow diagram -->
+    <div class="diagram-card">
+      <div class="diagram-title">GitHub Actions pipeline — process_pipeline.yml</div>
+      <svg width="100%" viewBox="0 0 860 160" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arr3" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+            <polygon points="0 0, 7 2.5, 0 5" fill="#3b82f6"/>
+          </marker>
+        </defs>
+
+        <!-- Step boxes -->
+        <g>
+          <!-- 1 -->
+          <rect x="10" y="40" width="100" height="60" rx="6" fill="#111827" stroke="#1e3a5f" stroke-width="1.5"/>
+          <text x="60" y="62" text-anchor="middle" fill="#3b82f6" font-size="9" font-weight="600">STEP 1/7</text>
+          <text x="60" y="78" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="600">Validate</text>
+          <text x="60" y="92" text-anchor="middle" fill="#475569" font-size="9">zip asset</text>
+          <line x1="110" y1="70" x2="128" y2="70" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr3)"/>
+        </g>
+        <g>
+          <!-- 2 -->
+          <rect x="130" y="40" width="100" height="60" rx="6" fill="#111827" stroke="#1e3a5f" stroke-width="1.5"/>
+          <text x="180" y="62" text-anchor="middle" fill="#3b82f6" font-size="9" font-weight="600">STEP 2/7</text>
+          <text x="180" y="78" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="600">Download</text>
+          <text x="180" y="92" text-anchor="middle" fill="#475569" font-size="9">zip file</text>
+          <line x1="230" y1="70" x2="248" y2="70" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr3)"/>
+        </g>
+        <g>
+          <!-- 3 -->
+          <rect x="250" y="40" width="100" height="60" rx="6" fill="#111827" stroke="#7c3aed" stroke-width="1.5"/>
+          <text x="300" y="62" text-anchor="middle" fill="#a78bfa" font-size="9" font-weight="600">STEP 3/7</text>
+          <text x="300" y="78" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="600">Terraform</text>
+          <text x="300" y="92" text-anchor="middle" fill="#475569" font-size="9">init·plan·apply</text>
+          <line x1="350" y1="70" x2="368" y2="70" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr3)"/>
+        </g>
+        <g>
+          <!-- 4 -->
+          <rect x="370" y="40" width="100" height="60" rx="6" fill="#111827" stroke="#0369a1" stroke-width="1.5"/>
+          <text x="420" y="62" text-anchor="middle" fill="#7dd3fc" font-size="9" font-weight="600">STEP 4/7</text>
+          <text x="420" y="78" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="600">Docker</text>
+          <text x="420" y="92" text-anchor="middle" fill="#475569" font-size="9">build+push ECR</text>
+          <line x1="470" y1="70" x2="488" y2="70" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr3)"/>
+        </g>
+        <g>
+          <!-- 5 -->
+          <rect x="490" y="40" width="100" height="60" rx="6" fill="#111827" stroke="#065f46" stroke-width="1.5"/>
+          <text x="540" y="62" text-anchor="middle" fill="#6ee7b7" font-size="9" font-weight="600">STEP 5/7</text>
+          <text x="540" y="78" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="600">Upload S3</text>
+          <text x="540" y="92" text-anchor="middle" fill="#475569" font-size="9">+tag org-id</text>
+          <line x1="590" y1="70" x2="608" y2="70" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr3)"/>
+        </g>
+        <g>
+          <!-- 6 -->
+          <rect x="610" y="40" width="100" height="60" rx="6" fill="#111827" stroke="#1e3a5f" stroke-width="1.5"/>
+          <text x="660" y="62" text-anchor="middle" fill="#3b82f6" font-size="9" font-weight="600">STEP 6/7</text>
+          <text x="660" y="78" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="600">Lambda</text>
+          <text x="660" y="92" text-anchor="middle" fill="#475569" font-size="9">log stream</text>
+          <line x1="710" y1="70" x2="728" y2="70" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr3)"/>
+        </g>
+        <g>
+          <!-- 7 -->
+          <rect x="730" y="40" width="110" height="60" rx="6" fill="#111827" stroke="#1e3a5f" stroke-width="1.5"/>
+          <text x="785" y="62" text-anchor="middle" fill="#3b82f6" font-size="9" font-weight="600">STEP 7/7</text>
+          <text x="785" y="78" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="600">ECS + Audit</text>
+          <text x="785" y="92" text-anchor="middle" fill="#475569" font-size="9">logs+DynamoDB</text>
+        </g>
+
+        <!-- trigger label -->
+        <text x="10" y="130" fill="#475569" font-size="10">Trigger:</text>
+        <text x="55" y="130" fill="#3b82f6" font-size="10" font-weight="600">on: release → published</text>
+        <text x="280" y="130" fill="#475569" font-size="10">Auto-triggered by S3 PutObject after Step 5 ↑</text>
+      </svg>
+    </div>
+
+    <h3>How to Trigger the Pipeline</h3>
+    <div class="steps">
+      <div class="step">
+        <div class="step-line"><div class="step-num">1</div><div class="step-connector"></div></div>
+        <div class="step-content">
+          <div class="step-title">Prepare a .zip file</div>
+          <div class="step-desc">Any valid <code>.zip</code> will work. Create a test file: <code>echo "hello" &gt; sample.txt &amp;&amp; zip mydata.zip sample.txt</code></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-line"><div class="step-num">2</div><div class="step-connector"></div></div>
+        <div class="step-content">
+          <div class="step-title">Create a GitHub Release</div>
+          <div class="step-desc">Go to <strong>Releases → Draft a new release</strong>. Set a tag (e.g. <code>v1.0.0</code>), title, then drag-and-drop your <code>.zip</code> into the assets area. Click <strong>Publish release</strong>.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-line"><div class="step-num">3</div><div class="step-connector"></div></div>
+        <div class="step-content">
+          <div class="step-title">Monitor the workflow</div>
+          <div class="step-desc">Go to <strong>Actions → Multitenant Platform Pipeline</strong>. Each step prints detailed logs including Terraform output names, S3 keys, ECS task IDs, and the final DynamoDB audit trail.</div>
+        </div>
+      </div>
+    </div>
+
+    <h3>Audit Trail</h3>
+    <p>Query the DynamoDB table after the run completes:</p>
+    <pre>aws dynamodb query \
+  --table-name multitenant-platform-dev-audit \
+  --key-condition-expression "org_id = :oid" \
+  --expression-attribute-values '{":oid":{"S":"&lt;your-github-org&gt;"}}' \
+  --output table \
+  --query 'Items[*].{Event:event_type.S,Status:status.S,Details:details.S}'</pre>
+
+    <p>Expected output:</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Event</th><th>Status</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag-blue">VALIDATED</span></td><td class="tag-green">SUCCESS</td><td>org-id=&lt;org&gt;, size=…MB</td></tr>
+          <tr><td><span class="tag-amber">PROCESSING_START</span></td><td class="tag-green">SUCCESS</td><td>ECS Fargate task: &lt;task-id&gt;</td></tr>
+          <tr><td><span class="tag-green">COMPLETE</span></td><td class="tag-green">SUCCESS</td><td>Processed file.zip, …MB, N files</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>View ECS Container Logs</h3>
+    <pre>aws logs tail /ecs/multitenant-platform-dev-processor --since 10m --format short</pre>
+  </section>
+
+  <!-- ── SECTION 4: HYBRID STRATEGY ── -->
+  <section class="section" id="hybrid">
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <h2>Hybrid Backbone Strategy</h2>
+    </div>
+
+    <p>A Member Organisation may require that <strong>their data never leaves their premises</strong>. The architecture supports this through three configuration seams — without any code changes to the backbone logic.</p>
+
+    <div class="diagram-card">
+      <div class="diagram-title">Cloud vs On-premises topology</div>
+      <svg width="100%" viewBox="0 0 860 340" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arr4" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+            <polygon points="0 0, 7 2.5, 0 5" fill="#3b82f6"/>
+          </marker>
+          <marker id="arr5" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+            <polygon points="0 0, 7 2.5, 0 5" fill="#f59e0b"/>
+          </marker>
+        </defs>
+
+        <!-- CLOUD region -->
+        <rect x="10" y="10" width="840" height="130" rx="10" fill="none" stroke="#1e3a5f" stroke-width="1.5" stroke-dasharray="6,3"/>
+        <text x="24" y="30" fill="#475569" font-size="10" font-weight="600">☁️  CLOUD BACKBONE (unchanged in both topologies)</text>
+
+        <rect x="30" y="42" width="120" height="50" rx="6" fill="#111827" stroke="#1e3a5f" stroke-width="1.5"/>
+        <text x="90" y="63" text-anchor="middle" fill="#93c5fd" font-size="10" font-weight="600">GitHub Actions</text>
+        <text x="90" y="78" text-anchor="middle" fill="#475569" font-size="9">Release → Pipeline</text>
+        <line x1="150" y1="67" x2="178" y2="67" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr4)"/>
+
+        <rect x="180" y="42" width="110" height="50" rx="6" fill="#111827" stroke="#7c3aed" stroke-width="1.5"/>
+        <text x="235" y="63" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="600">Terraform</text>
+        <text x="235" y="78" text-anchor="middle" fill="#475569" font-size="9">IaC provision</text>
+        <line x1="290" y1="67" x2="318" y2="67" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr4)"/>
+
+        <rect x="320" y="42" width="130" height="50" rx="6" fill="#111827" stroke="#7c3aed" stroke-width="1.5"/>
+        <text x="385" y="60" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="600">Lambda Validator</text>
+        <text x="385" y="75" text-anchor="middle" fill="#475569" font-size="9">Validate · Write audit</text>
+        <text x="385" y="88" text-anchor="middle" fill="#475569" font-size="9">Route to compute</text>
+
+        <!-- Seam labels in cloud -->
+        <text x="560" y="46" fill="#f59e0b" font-size="9" font-weight="600">⚙ SEAM 1</text>
+        <text x="560" y="58" fill="#64748b" font-size="9">Storage endpoint</text>
+        <text x="560" y="70" fill="#64748b" font-size="9">AWS_ENDPOINT_URL_S3</text>
+
+        <text x="700" y="46" fill="#f59e0b" font-size="9" font-weight="600">⚙ SEAM 3</text>
+        <text x="700" y="58" fill="#64748b" font-size="9">Audit DB endpoint</text>
+        <text x="700" y="70" fill="#64748b" font-size="9">AWS_ENDPOINT_URL_DYNAMODB</text>
+
+        <text x="560" y="95" fill="#f59e0b" font-size="9" font-weight="600">⚙ SEAM 2</text>
+        <text x="560" y="107" fill="#64748b" font-size="9">Compute routing</text>
+        <text x="560" y="119" fill="#64748b" font-size="9">SQS manifest → Relay Agent</text>
+
+        <!-- Divider -->
+        <line x1="10" y1="165" x2="850" y2="165" stroke="#1e2d45" stroke-width="1" stroke-dasharray="4,4"/>
+
+        <!-- CLOUD path -->
+        <rect x="10" y="175" width="400" height="140" rx="8" fill="none" stroke="#0369a1" stroke-width="1.5"/>
+        <text x="26" y="196" fill="#7dd3fc" font-size="10" font-weight="600">☁️  Cloud Path (default)</text>
+
+        <rect x="30" y="208" width="100" height="46" rx="6" fill="#0f172a" stroke="#065f46" stroke-width="1.5"/>
+        <text x="80" y="226" text-anchor="middle" fill="#6ee7b7" font-size="10" font-weight="600">AWS S3</text>
+        <text x="80" y="242" text-anchor="middle" fill="#475569" font-size="9">Upload bucket</text>
+        <line x1="130" y1="231" x2="158" y2="231" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr4)"/>
+
+        <rect x="160" y="208" width="110" height="46" rx="6" fill="#0f172a" stroke="#0369a1" stroke-width="1.5"/>
+        <text x="215" y="226" text-anchor="middle" fill="#7dd3fc" font-size="10" font-weight="600">ECS Fargate</text>
+        <text x="215" y="242" text-anchor="middle" fill="#475569" font-size="9">data-processor</text>
+        <line x1="270" y1="231" x2="298" y2="231" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr4)"/>
+
+        <rect x="300" y="208" width="90" height="46" rx="6" fill="#0f172a" stroke="#065f46" stroke-width="1.5"/>
+        <text x="345" y="226" text-anchor="middle" fill="#6ee7b7" font-size="10" font-weight="600">DynamoDB</text>
+        <text x="345" y="242" text-anchor="middle" fill="#475569" font-size="9">Audit table</text>
+
+        <text x="30" y="282" fill="#475569" font-size="9">No extra config needed — default boto3 endpoints</text>
+        <text x="30" y="295" fill="#10b981" font-size="9" font-weight="600">✓ Zero code changes from baseline</text>
+
+        <!-- ON-PREM path -->
+        <rect x="430" y="175" width="420" height="140" rx="8" fill="none" stroke="#f59e0b" stroke-width="1.5"/>
+        <text x="446" y="196" fill="#fcd34d" font-size="10" font-weight="600">🏢  On-Premises Path</text>
+
+        <rect x="450" y="208" width="100" height="46" rx="6" fill="#0f172a" stroke="#92400e" stroke-width="1.5"/>
+        <text x="500" y="223" text-anchor="middle" fill="#fcd34d" font-size="10" font-weight="600">MinIO / Ceph</text>
+        <text x="500" y="237" text-anchor="middle" fill="#475569" font-size="9">S3-compatible</text>
+        <text x="500" y="249" text-anchor="middle" fill="#78716c" font-size="8">AWS_ENDPOINT_URL_S3</text>
+        <line x1="550" y1="231" x2="578" y2="231" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arr5)"/>
+
+        <rect x="580" y="208" width="110" height="46" rx="6" fill="#0f172a" stroke="#92400e" stroke-width="1.5"/>
+        <text x="635" y="223" text-anchor="middle" fill="#fcd34d" font-size="10" font-weight="600">Relay Agent</text>
+        <text x="635" y="237" text-anchor="middle" fill="#475569" font-size="9">Docker / k8s</text>
+        <text x="635" y="249" text-anchor="middle" fill="#78716c" font-size="8">SQS manifest poll</text>
+        <line x1="690" y1="231" x2="718" y2="231" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arr5)"/>
+
+        <rect x="720" y="208" width="110" height="46" rx="6" fill="#0f172a" stroke="#92400e" stroke-width="1.5"/>
+        <text x="775" y="223" text-anchor="middle" fill="#fcd34d" font-size="10" font-weight="600">DynamoDB-</text>
+        <text x="775" y="236" text-anchor="middle" fill="#fcd34d" font-size="10" font-weight="600">compatible</text>
+        <text x="775" y="249" text-anchor="middle" fill="#78716c" font-size="8">AWS_ENDPOINT_URL_DYNAMODB</text>
+
+        <text x="450" y="282" fill="#475569" font-size="9">Only 3 env vars change — no code modifications required</text>
+        <text x="450" y="295" fill="#f59e0b" font-size="9" font-weight="600">✓ Same Lambda, same processor, same audit schema</text>
+      </svg>
+    </div>
+
+    <h3>Three Configuration Seams</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Seam</th><th>Layer</th><th>Cloud (default)</th><th>On-premises</th><th>Change required</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="tag-amber">1</span></td>
+            <td>Storage</td>
+            <td>AWS S3</td>
+            <td>MinIO / Ceph / any S3-compatible</td>
+            <td>Set <code>AWS_ENDPOINT_URL_S3</code></td>
+          </tr>
+          <tr>
+            <td><span class="tag-amber">2</span></td>
+            <td>Compute</td>
+            <td>ECS Fargate (<code>ecs:RunTask</code>)</td>
+            <td>Relay Agent polling SQS → Docker / k8s</td>
+            <td>Add Relay Agent (~80 lines Python)</td>
+          </tr>
+          <tr>
+            <td><span class="tag-amber">3</span></td>
+            <td>Audit DB</td>
+            <td>AWS DynamoDB</td>
+            <td>DynamoDB Local / ScyllaDB Alternator</td>
+            <td>Set <code>AWS_ENDPOINT_URL_DYNAMODB</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-ok">
+      <span class="callout-icon">✅</span>
+      <div><strong>Key principle:</strong> boto3 respects <code>AWS_ENDPOINT_URL_*</code> environment variables natively. The validation logic, audit schema, and container interface are identical in both topologies. Only the transport endpoints differ — expressed as configuration, not code.</div>
+    </div>
+  </section>
+
+  <!-- ── SECTION 5: SECURITY ── -->
+  <section class="section" id="security">
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <h2>Security Model</h2>
+    </div>
+
+    <div class="diagram-card">
+      <div class="diagram-title">IAM least-privilege boundaries</div>
+      <svg width="100%" viewBox="0 0 860 220" xmlns="http://www.w3.org/2000/svg">
+        <!-- Lambda role box -->
+        <rect x="10" y="20" width="240" height="180" rx="8" fill="#0f172a" stroke="#7c3aed" stroke-width="1.5"/>
+        <text x="130" y="42" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="600">Lambda Execution Role</text>
+        <text x="130" y="56" text-anchor="middle" fill="#475569" font-size="9">multitenant-platform-dev-lambda-role</text>
+        <line x1="20" y1="65" x2="240" y2="65" stroke="#1e2d45" stroke-width="1"/>
+        <text x="24" y="82" fill="#6ee7b7" font-size="10">✓ s3:GetObject, GetObjectTagging</text>
+        <text x="24" y="98" fill="#6ee7b7" font-size="10">✓ s3:HeadObject, ListBucket</text>
+        <text x="24" y="114" fill="#6ee7b7" font-size="10">✓ dynamodb:PutItem, UpdateItem</text>
+        <text x="24" y="130" fill="#6ee7b7" font-size="10">✓ ecs:RunTask, DescribeTasks</text>
+        <text x="24" y="146" fill="#6ee7b7" font-size="10">✓ iam:PassRole (to ecs-tasks only)</text>
+        <text x="24" y="162" fill="#6ee7b7" font-size="10">✓ logs:CreateLogGroup, PutLogEvents</text>
+        <text x="24" y="178" fill="#ef4444" font-size="10">✗ No s3:DeleteObject, PutObject</text>
+        <text x="24" y="194" fill="#ef4444" font-size="10">✗ No broad IAM or admin actions</text>
+
+        <!-- ECS Task role box -->
+        <rect x="290" y="20" width="220" height="120" rx="8" fill="#0f172a" stroke="#0369a1" stroke-width="1.5"/>
+        <text x="400" y="42" text-anchor="middle" fill="#7dd3fc" font-size="11" font-weight="600">ECS Task Role</text>
+        <text x="400" y="56" text-anchor="middle" fill="#475569" font-size="9">multitenant-platform-dev-ecs-task-role</text>
+        <line x1="300" y1="65" x2="500" y2="65" stroke="#1e2d45" stroke-width="1"/>
+        <text x="304" y="82" fill="#6ee7b7" font-size="10">✓ s3:GetObject (uploads/* only)</text>
+        <text x="304" y="98" fill="#6ee7b7" font-size="10">✓ dynamodb:PutItem, UpdateItem</text>
+        <text x="304" y="114" fill="#ef4444" font-size="10">✗ No S3 listing or bucket access</text>
+        <text x="304" y="130" fill="#ef4444" font-size="10">✗ No ECS, IAM, or Lambda access</text>
+
+        <!-- ECS Exec role box -->
+        <rect x="290" y="160" width="220" height="50" rx="8" fill="#0f172a" stroke="#1e3a5f" stroke-width="1.5"/>
+        <text x="400" y="180" text-anchor="middle" fill="#94a3b8" font-size="11" font-weight="600">ECS Execution Role</text>
+        <text x="400" y="196" text-anchor="middle" fill="#475569" font-size="9">AWS managed: AmazonECSTaskExecutionRolePolicy</text>
+
+        <!-- S3 encryption -->
+        <rect x="550" y="20" width="200" height="80" rx="8" fill="#0f172a" stroke="#065f46" stroke-width="1.5"/>
+        <text x="650" y="40" text-anchor="middle" fill="#6ee7b7" font-size="11" font-weight="600">Data Encryption</text>
+        <text x="650" y="58" text-anchor="middle" fill="#475569" font-size="10">S3: SSE-S3 (AES-256)</text>
+        <text x="650" y="74" text-anchor="middle" fill="#475569" font-size="10">DynamoDB: SSE enabled</text>
+        <text x="650" y="90" text-anchor="middle" fill="#475569" font-size="10">S3 public access: fully blocked</text>
+
+        <!-- Network -->
+        <rect x="550" y="120" width="200" height="80" rx="8" fill="#0f172a" stroke="#1e3a5f" stroke-width="1.5"/>
+        <text x="650" y="140" text-anchor="middle" fill="#94a3b8" font-size="11" font-weight="600">Network Security</text>
+        <text x="650" y="158" text-anchor="middle" fill="#475569" font-size="10">ECS SG: egress-only</text>
+        <text x="650" y="174" text-anchor="middle" fill="#475569" font-size="10">No inbound rules on Fargate</text>
+        <text x="650" y="190" text-anchor="middle" fill="#475569" font-size="10">Docker: non-root user</text>
+      </svg>
+    </div>
+
+    <div class="two-col">
+      <div>
+        <h3>Encryption at Rest</h3>
+        <ul>
+          <li>S3 bucket: SSE-S3 (AES-256) applied to all objects</li>
+          <li>DynamoDB table: server-side encryption enabled</li>
+          <li>ECR repository: AES-256 image encryption</li>
+          <li>S3 public access: fully blocked at bucket level</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Least-Privilege IAM</h3>
+        <ul>
+          <li>Lambda role scoped to specific bucket ARN, table ARN, task ARN</li>
+          <li>ECS task role restricted to <code>uploads/*</code> S3 prefix only</li>
+          <li><code>iam:PassRole</code> conditioned on <code>ecs-tasks.amazonaws.com</code></li>
+          <li>No wildcards on sensitive resource types</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SECTION 6: REPO STRUCTURE ── -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">06</span>
+      <h2>Repository Structure</h2>
+    </div>
+    <pre>multitenant-platform/
+├── .github/workflows/
+│   ├── process_pipeline.yml   # Main CI/CD pipeline (on: release)
+│   └── destroy.yml            # Manual teardown workflow
+│
+├── infra/
+│   ├── version.tf             # Terraform &amp; provider versions
+│   ├── environments/dev/
+│   │   ├── main.tf            # All resource definitions
+│   │   ├── variables.tf       # Input variable declarations
+│   │   ├── outputs.tf         # Exported values (bucket, Lambda, etc.)
+│   │   ├── provider.tf        # AWS provider configuration
+│   │   ├── state.tf           # S3 backend (injected via -backend-config)
+│   │   └── terraform.tfvars   # Default values (vpc_id, subnet_id)
+│   │
+│   └── modules/
+│       ├── s3/                # S3 bucket + encryption + public access block
+│       ├── dynamodb/          # Audit table + PITR
+│       ├── iam/               # Lambda execution role + least-priv policy
+│       └── lambda/            # Lambda function + archive packaging
+│
+├── src/
+│   ├── lambda/validator/
+│   │   └── handler.py         # Lambda: validate → audit → ECS trigger
+│   └── processor/
+│       ├── process.py         # Fargate: download → inspect → audit
+│       ├── Dockerfile         # python:3.12-slim, non-root user
+│       └── requirements.txt   # boto3&gt;=1.34.0
+│
+└── docs/
+    ├── README.md              # Deployment &amp; testing guide
+    └── HYBRID-STRATEGY.md     # On-premises decoupling strategy</pre>
+  </section>
+
+  <!-- ── SECTION 7: TEARDOWN ── -->
+  <section class="section" id="teardown">
+    <div class="section-header">
+      <span class="section-num">07</span>
+      <h2>Teardown</h2>
+    </div>
+
+    <p>All infrastructure can be destroyed from GitHub Actions without any local tooling.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-line"><div class="step-num">1</div><div class="step-connector"></div></div>
+        <div class="step-content">
+          <div class="step-title">Go to Actions → Destroy Infrastructure</div>
+          <div class="step-desc">Navigate to the <strong>Actions</strong> tab in the GitHub repository.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-line"><div class="step-num">2</div><div class="step-connector"></div></div>
+        <div class="step-content">
+          <div class="step-title">Run workflow manually</div>
+          <div class="step-desc">Select <strong>Destroy Infrastructure</strong> from the workflow list. Click <strong>Run workflow → Run workflow</strong>. The workflow runs <code>terraform destroy -auto-approve</code>.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-line"><div class="step-num">3</div><div class="step-connector"></div></div>
+        <div class="step-content">
+          <div class="step-title">Manual cleanup (if needed)</div>
+          <div class="step-desc">The Terraform state S3 bucket and IAM group are not managed by Terraform and must be deleted manually in the AWS Console if no longer needed.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-warn">
+      <span class="callout-icon">⚠️</span>
+      <div><strong>S3 force_destroy = true:</strong> The upload bucket is configured with <code>force_destroy = true</code>, so <code>terraform destroy</code> will delete all objects inside it without confirmation. Ensure any files you wish to retain are backed up first.</div>
+    </div>
+  </section>
+
+  <!-- ── SECTION 8: KNOWN ISSUES ── -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">08</span>
+      <h2>Known Issues &amp; Improvement Scope</h2>
+    </div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🔑</div>
+        <div class="card-title">Credential Distribution</div>
+        <div class="card-body">AWS access keys are shared via GitHub secrets. A better approach is OIDC federation (<code>aws-actions/configure-aws-credentials</code> with <code>role-to-assume</code>) to eliminate long-lived keys entirely.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🤖</div>
+        <div class="card-title">Pipeline Automation</div>
+        <div class="card-body">Trigger the pipeline automatically when a file is uploaded to Google Drive or an S3-compatible store using n8n or a custom webhook, removing the need for a manual GitHub Release.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📦</div>
+        <div class="card-title">Multi-environment</div>
+        <div class="card-body">Currently only a <code>dev</code> environment exists. Add <code>staging</code> and <code>prod</code> directories under <code>infra/environments/</code> with separate state keys and variable files.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔔</div>
+        <div class="card-title">Failure Alerting</div>
+        <div class="card-body">DynamoDB records <code>FAILED</code> events but there is no active notification. Consider an EventBridge rule on DynamoDB Streams to trigger an SNS alert on any <code>status=FAILED</code> record.</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  multitenant-platform · Terraform · AWS · GitHub Actions · Python 3.12 · Built with IaC
+</footer>
+
+</body>
+</html>
