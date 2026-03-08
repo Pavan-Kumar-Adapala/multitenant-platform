@@ -8,21 +8,21 @@ locals {
   }
 }
 
-# ── S3 Upload Bucket ─────────────────────────────────────────────────────────
+# ------------- S3 Upload Bucket ---------------------------------------------
 module "s3" {
   source      = "../../modules/s3"
   bucket_name = "${local.prefix}-uploads"
   tags        = local.tags
 }
 
-# ── DynamoDB Audit Table ─────────────────────────────────────────────────────
+# ------------- DynamoDB Audit Table ---------------------------------------------
 module "dynamodb" {
   source     = "../../modules/dynamodb"
   table_name = "${local.prefix}-audit"
   tags       = local.tags
 }
 
-# ── ECR Repository ───────────────────────────────────────────────────────────
+# ------------- ECR Repository ---------------------------------------------──
 resource "aws_ecr_repository" "processor" {
   name                 = "${local.prefix}-processor"
   image_tag_mutability = "MUTABLE"
@@ -34,7 +34,7 @@ resource "aws_ecr_repository" "processor" {
   tags = local.tags
 }
 
-# ── CloudWatch Log Group for ECS ─────────────────────────────────────────────
+# ------------- CloudWatch Log Group for ECS ---------------------------------------------
 resource "aws_cloudwatch_log_group" "ecs_processor" {
   name              = "/ecs/${local.prefix}-processor"
   retention_in_days = 14
@@ -42,7 +42,7 @@ resource "aws_cloudwatch_log_group" "ecs_processor" {
 }
 
 
-# ── Security Group for ECS Fargate tasks (egress-only) ───────────────────────
+# ------------- Security Group for ECS Fargate tasks (egress-only) ---------------------------------------------
 # vpc_id comes from var.vpc_id — no ec2:DescribeVpcs permission needed
 resource "aws_security_group" "ecs" {
   name        = "${local.prefix}-ecs-sg"
@@ -60,13 +60,13 @@ resource "aws_security_group" "ecs" {
   tags = local.tags
 }
 
-# ── ECS Fargate Cluster ──────────────────────────────────────────────────────
+# ------------- ECS Fargate Cluster ---------------------------------------------
 resource "aws_ecs_cluster" "this" {
   name = "${local.prefix}-cluster"
   tags = local.tags
 }
 
-# ── ECS Task Execution Role ───────────────────────────────────────────────────
+# ------------- ECS Task Execution Role ---------------------------------------------
 
 resource "aws_iam_role" "ecs_execution" {
   name = "${local.prefix}-ecs-execution-role"
@@ -84,7 +84,7 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_managed" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# ── ECS Task Role (least-privilege) ──────────────────────────────────────────
+# ------------- ECS Task Role (least-privilege) ---------------------------------------------
 resource "aws_iam_role" "ecs_task" {
   name = "${local.prefix}-ecs-task-role"
   tags = local.tags
@@ -112,7 +112,7 @@ resource "aws_iam_role_policy" "ecs_task" {
   })
 }
 
-# ── ECS Task Definition ───────────────────────────────────────────────────────
+# ------------- ECS Task Definition ---------------------------------------------
 resource "aws_ecs_task_definition" "processor" {
   family                   = "${local.prefix}-processor"
   requires_compatibilities = ["FARGATE"]
@@ -140,7 +140,7 @@ resource "aws_ecs_task_definition" "processor" {
   depends_on = [aws_cloudwatch_log_group.ecs_processor]
 }
 
-# ── Lambda IAM Role ───────────────────────────────────────────────────────────
+# ------------- Lambda IAM Role ---------------------------------------------──
 module "iam" {
   source            = "../../modules/iam"
   role_name         = "${local.prefix}-lambda-role"
@@ -153,7 +153,7 @@ module "iam" {
   tags              = local.tags
 }
 
-# ── Lambda Validator ─────────────────────────────────────────────────────────
+# ------------- Lambda Validator ---------------------------------------------
 module "lambda" {
   source             = "../../modules/lambda"
   function_name      = "${local.prefix}-validator"
@@ -174,7 +174,7 @@ module "lambda" {
   }
 }
 
-# ── Allow S3 to invoke Lambda ─────────────────────────────────────────────────
+# ------------- Allow S3 to invoke Lambda ---------------------------------------------
 resource "aws_lambda_permission" "allow_s3" {
   statement_id  = "AllowS3Invoke"
   action        = "lambda:InvokeFunction"
@@ -183,7 +183,7 @@ resource "aws_lambda_permission" "allow_s3" {
   source_arn    = module.s3.bucket_arn
 }
 
-# ── S3 event → Lambda ─────────────────────────────────────────────────────────
+# ------------- S3 event → Lambda ---------------------------------------------
 resource "aws_s3_bucket_notification" "uploads" {
   bucket = module.s3.bucket_id
 

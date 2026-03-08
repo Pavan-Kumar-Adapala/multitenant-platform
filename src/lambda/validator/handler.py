@@ -17,7 +17,7 @@ import logging
 from datetime import datetime, timezone
 from botocore.exceptions import ClientError
 
-# ── Logger setup ──────────────────────────────────────────────────────────────
+# --------------------- Logger setup --------------------------
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -29,12 +29,12 @@ def log_section(title):
 def log_kv(key, value):
     logger.info(f"  {key:<25} : {value}")
 
-# ── AWS clients (reused across warm invocations) ──────────────────────────────
+# --------------------- AWS clients (reused across warm invocations) ---------------------------
 s3_client  = boto3.client("s3")
 ecs_client = boto3.client("ecs")
 db         = boto3.resource("dynamodb")
 
-# ── Environment variables (set by Terraform) ──────────────────────────────────
+# --------------------- Environment variables (set by Terraform) ---------------------------
 TABLE_NAME   = os.environ["DYNAMODB_TABLE"]
 ECS_CLUSTER  = os.environ["ECS_CLUSTER"]
 ECS_TASK_DEF = os.environ["ECS_TASK_DEFINITION"]
@@ -45,7 +45,7 @@ CONTAINER    = os.environ.get("CONTAINER_NAME", "data-processor")
 MAX_SIZE_MB  = 500
 
 
-# ── Audit writer ──────────────────────────────────────────────────────────────
+# --------------------- Audit writer --------------------------
 
 def write_audit(org_id, event_type, file_key, status, details,
                 user_name="", user_email=""):
@@ -65,7 +65,7 @@ def write_audit(org_id, event_type, file_key, status, details,
     logger.info(f"[AUDIT] event={event_type} | org={org_id} | status={status} | {details}")
 
 
-# ── Validation helpers ────────────────────────────────────────────────────────
+# --------------------- Validation helpers --------------------------
 
 def validate_org_id(tags: dict):
     org_id = tags.get("organization-id", "").strip()
@@ -110,7 +110,7 @@ def validate_metadata(head: dict):
     return True, f"size={size_mb:.2f}MB"
 
 
-# ── ECS trigger ───────────────────────────────────────────────────────────────
+# --------------------- ECS trigger --------------------------
 
 def trigger_ecs(org_id, bucket, s3_key, file_size, user_name, user_email):
     logger.info("  Launching ECS Fargate task...")
@@ -161,7 +161,7 @@ def trigger_ecs(org_id, bucket, s3_key, file_size, user_name, user_email):
     return task_id
 
 
-# ── Main handler ──────────────────────────────────────────────────────────────
+# --------------------- Main handler --------------------------
 
 def handler(event, context):
     log_section("LAMBDA VALIDATOR — START")
@@ -185,7 +185,7 @@ def handler(event, context):
         log_kv("Size",     f"{size} bytes ({size / 1024 / 1024:.3f} MB)")
 
         try:
-            # ── 1. Read S3 tags and object metadata ───────────────────────
+            # --------------------- 1. Read S3 tags and object metadata ------------------------------
             logger.info("")
             logger.info("  [1/4] Reading S3 tags and metadata...")
 
@@ -205,7 +205,7 @@ def handler(event, context):
             log_kv("user_name",  user_name or "(not set)")
             log_kv("user_email", user_email or "(not set)")
 
-            # ── 2. Validate org-id ────────────────────────────────────────
+            # --------------------- 2. Validate org-id tag (required) ------------------------------
             logger.info("")
             logger.info("  [2/4] Validating organization-id tag...")
 
@@ -216,7 +216,7 @@ def handler(event, context):
                             f"org-id check: {org_msg}", user_name, user_email)
                 continue
 
-            # ── 3. Validate file metadata ─────────────────────────────────
+            # --------------------- 3. Validate file metadata (size, content-type) ------------------------------
             logger.info("")
             logger.info("  [3/4] Validating file metadata...")
 
@@ -227,7 +227,7 @@ def handler(event, context):
                             f"metadata check: {meta_msg}", user_name, user_email)
                 continue
 
-            # ── 4. Write VALIDATED + launch ECS task ──────────────────────
+            # --------------------- 4. Write VALIDATED + launch ECS task ------------------------------
             logger.info("")
             logger.info("  [4/4] Validation passed — writing audit + launching ECS...")
 
