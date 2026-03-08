@@ -19,7 +19,7 @@ resource "aws_iam_role_policy" "lambda" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      # ── S3: read uploads + read object tags (org-id validation) ─────────
+      # ----------------------- S3: read uploads + read object tags (org-id validation) -----------------------
       {
         Sid    = "S3ReadUploads"
         Effect = "Allow"
@@ -35,7 +35,7 @@ resource "aws_iam_role_policy" "lambda" {
         ]
       },
 
-      # ── DynamoDB: write audit records ───────────────────────────────────
+      # ----------------------- DynamoDB: write audit records -----------------------------------------
       {
         Sid      = "DynamoDBWriteAudit"
         Effect   = "Allow"
@@ -43,7 +43,7 @@ resource "aws_iam_role_policy" "lambda" {
         Resource = var.audit_table_arn
       },
 
-      # ── ECS Fargate: launch and describe processor tasks ─────────────────
+      # ----------------------- ECS Fargate: launch and describe processor tasks -----------------------
       {
         Sid    = "ECSRunTask"
         Effect = "Allow"
@@ -54,7 +54,7 @@ resource "aws_iam_role_policy" "lambda" {
         ]
       },
 
-      # ── IAM: pass task + execution roles to ECS (least-privilege) ────────
+      # ----------------------- IAM: pass task + execution roles to ECS (least-privilege) -----------------------
       {
         Sid    = "ECSPassRoles"
         Effect = "Allow"
@@ -70,7 +70,7 @@ resource "aws_iam_role_policy" "lambda" {
         }
       },
 
-      # ── CloudWatch Logs ──────────────────────────────────────────────────
+      # ----------------------- CloudWatch Logs -----------------------
       {
         Sid    = "CloudWatchLogs"
         Effect = "Allow"

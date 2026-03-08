@@ -14,7 +14,7 @@ import tempfile
 from datetime import datetime, timezone
 from botocore.exceptions import ClientError
 
-# ── Logger ────────────────────────────────────────────────────────────────────
+# --------------------- Logger ----------------------------
 logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s] %(levelname)s  %(message)s",
@@ -30,7 +30,7 @@ def log_section(title):
 def log_kv(key, value):
     logger.info(f"  {key:<25} : {value}")
 
-# ── Environment variables ─────────────────────────────────────────────────────
+# --------------------- Environment variables ----------------------------
 S3_BUCKET  = os.environ["S3_BUCKET"]
 S3_KEY     = os.environ["S3_KEY"]
 ORG_ID     = os.environ["ORG_ID"]
@@ -43,7 +43,7 @@ s3 = boto3.client("s3")
 db = boto3.resource("dynamodb")
 
 
-# ── Audit writer ──────────────────────────────────────────────────────────────
+# --------------------- Audit writer ----------------------------
 
 def write_audit(event_type, status, details):
     ts = datetime.now(timezone.utc).isoformat()
@@ -61,7 +61,7 @@ def write_audit(event_type, status, details):
     logger.info(f"[AUDIT] event={event_type} | status={status} | {details}")
 
 
-# ── Processor ─────────────────────────────────────────────────────────────────
+# --------------------- Processor logic ----------------------------
 
 def process_file(tmp_path):
     file_name = os.path.basename(S3_KEY)
@@ -112,7 +112,7 @@ def process_file(tmp_path):
     return len(entries)
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# --------------------- Main function ----------------------------
 
 def main():
     log_section("ECS FARGATE PROCESSOR — START")
@@ -130,7 +130,7 @@ def main():
         local_path = os.path.join(tmpdir, file_name)
 
         try:
-            # ── Download from S3 ──────────────────────────────────────────
+            # --------------------- Download from S3 ------------------------------
             logger.info(f"  [1/3] Downloading from S3...")
             log_kv("Source",  f"s3://{S3_BUCKET}/{S3_KEY}")
             log_kv("Dest",    local_path)
@@ -142,12 +142,12 @@ def main():
             logger.info(f"  Download complete")
             logger.info("")
 
-            # ── Process the zip ───────────────────────────────────────────
+            # --------------------- Process the zip file ------------------------------
             logger.info(f"  [2/3] Processing zip file...")
             file_count = process_file(local_path)
             logger.info("")
 
-            # ── Write audit record ────────────────────────────────────────
+            # --------------------- Write audit record + complete ------------------------------
             logger.info(f"  [3/3] Writing audit record to DynamoDB...")
             size_mb = FILE_SIZE / (1024 * 1024)
             summary = f"Processed {file_name} | {size_mb:.2f} MB | {file_count} files"
