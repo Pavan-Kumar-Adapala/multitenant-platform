@@ -103,7 +103,9 @@ jobs:
 
       - name: Terraform Destroy (cleanup from previous runs)
         working-directory: infra/environments/dev
-        run: terraform destroy -auto-approve || echo "No existing infrastructure to destroy."
+        run: |
+          terraform state rm aws_iam_service_linked_role.ecs
+          terraform destroy -auto-approve || echo "No existing infrastructure to destroy."
 
       # - name: Terraform Format
       #   working-directory: infra/environments/dev
