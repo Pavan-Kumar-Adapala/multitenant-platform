@@ -1,6 +1,5 @@
 name: Destroy Infrastructure
 
-# Only runs when manually triggered — never automatically
 on:
   workflow_dispatch:
 
@@ -38,10 +37,13 @@ jobs:
 
       - name: Clean up stale state entries
         working-directory: infra/environments/dev
-        # These resources cannot be managed by this IAM user.
-        # state rm exits with code 1 if not found — we ignore that with || true
         run: |
-          terraform state rm aws_iam_service_linked_role.ecs || true
+          # Disable exit-on-error so terraform state rm failing (resource not found)
+          # does not kill this step — bash -e would otherwise stop here
+          set +e
+          terraform state rm aws_iam_service_linked_role.ecs
+          set -e
+          echo "State cleanup done (resource may not have existed — that is fine)"
 
       - name: Terraform Destroy
         working-directory: infra/environments/dev
