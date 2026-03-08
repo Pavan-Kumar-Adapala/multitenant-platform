@@ -15,8 +15,6 @@ jobs:
       TF_VAR_statefile_bucket_name: ${{ secrets.STATEFILE_BUCKET_NAME }}
       TF_VAR_statefile_bucket_region: ${{ secrets.STATEFILE_BUCKET_REGION }}
       TF_VAR_aws_region: ${{ secrets.AWS_DEFAULT_REGION }}
-      TF_VAR_vpc_id: ${{ secrets.VPC_ID }}
-      TF_VAR_subnet_id: ${{ secrets.SUBNET_ID }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
@@ -141,21 +139,28 @@ jobs:
           docker push "$IMAGE_TAG"
           echo "Image pushed successfully."
 
-      # ── 5. Upload zip to S3 ────────────────────────────────────────────────
-      #    S3 PutObject event automatically invokes the Lambda validator.
-      #    No direct Lambda call needed — the event notification handles it.
+        # ── 5. Upload zip to S3 ────────────────────────────────────────────────
+      #    Upload first, then apply tags separately — avoids --tagging + --metadata
+      #    parse conflicts. S3 PutObject event auto-triggers Lambda validator.
       - name: Upload zip to S3
         run: |
           BUCKET=$(terraform -chdir=infra/environments/dev output -raw upload_bucket_name)
           FILE="${{ steps.asset.outputs.zip_name }}"
-          ORG_ID="${{ github.repository_owner }}"   # use GitHub org as org-id
+          ORG_ID="${{ github.repository_owner }}"
+          S3_KEY="uploads/$FILE"
 
-          echo "Uploading $FILE → s3://$BUCKET/uploads/$FILE"
-          aws s3 cp "$FILE" "s3://$BUCKET/uploads/$FILE" \
-            --tagging "organization-id=${ORG_ID}" \
-            --metadata "uploaded-by=${{ github.actor }},uploaded-by-name=${{ github.actor }}"
+          # Step 1: plain upload — no extra flags
+          echo "Uploading $FILE → s3://$BUCKET/$S3_KEY"
+          aws s3 cp "$FILE" "s3://$BUCKET/$S3_KEY"
 
-          echo "Upload complete. Lambda validator will be invoked automatically via S3 event."
+          # Step 2: apply organization-id tag separately (Lambda reads this tag)
+          echo "Tagging with organization-id=${ORG_ID}"
+          aws s3api put-object-tagging \
+            --bucket "$BUCKET" \
+            --key "$S3_KEY" \
+            --tagging "TagSet=[{Key=organization-id,Value=${ORG_ID}},{Key=uploaded-by,Value=${{ github.actor }}}]"
+
+          echo "Upload + tagging complete. Lambda will be invoked automatically via S3 event."
 
       # ── 6. Wait and show audit trail ───────────────────────────────────────
       - name: Wait for Lambda + ECS to run (30 s)
