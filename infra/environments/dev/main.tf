@@ -41,15 +41,6 @@ resource "aws_cloudwatch_log_group" "ecs_processor" {
   tags              = local.tags
 }
 
-# ── ECS Fargate Service Linked Role ──────────────────────────────────────────
-resource "aws_iam_service_linked_role" "ecs" {
-  aws_service_name = "ecs.amazonaws.com"
-
-  # Ignore if it already exists in the account
-  lifecycle {
-    ignore_changes = [description]
-  }
-}
 
 # ── Security Group for ECS Fargate tasks (egress-only) ───────────────────────
 # vpc_id comes from var.vpc_id — no ec2:DescribeVpcs permission needed

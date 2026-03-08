@@ -103,6 +103,22 @@ GitHub Actions
     }
   ]
 }
+
+Create Service Linked Role for ECS (AWSServiceRoleForECS):
+
+
+Admin steps in AWS Console:
+
+    Go to IAM → Roles → Create role
+
+    Select AWS service
+
+    Under "Use case" search for Elastic Container Service
+
+    Select Elastic Container Service (not ECS Task)
+
+    Click Next through the rest and Create role
+
 ```
 
 - In GitHub Repo settings, **Actions secrets and variables** section created the below secrets.
