@@ -106,6 +106,8 @@ aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com
   - `AWS_ACCESS_KEY_ID`
   - `AWS_SECRET_ACCESS_KEY`
   - `AWS_DEFAULT_REGION`
+  - `VPC_ID`
+  - `SUBNET_ID`
 
 ### Inside GitHub
 
@@ -114,6 +116,8 @@ Assume you are working in orgnization as a developer and you want to use this pl
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 - `AWS_DEFAULT_REGION`
+- `VPC_ID`
+- `SUBNET_ID`
 
 As a developer you need Github repo access to add GitHub Repository Secrets
 
@@ -124,6 +128,8 @@ Repository (Settings → Secrets and variables → Actions):
 | `AWS_ACCESS_KEY_ID`     | From admin |
 | `AWS_SECRET_ACCESS_KEY` | From admin |
 | `AWS_DEFAULT_REGION`    | From admin |
+| `VPC_ID`                | From admin |
+| `SUBNET_ID`             | From admin |
 
 Note:
 It is not a best appraoch. I will find better options in future.

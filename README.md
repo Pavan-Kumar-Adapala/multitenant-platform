@@ -227,6 +227,8 @@ You need from the AWS Admin (Contact could admin asking the following details):
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 - `AWS_DEFAULT_REGION`
+- `VPC_ID`
+- `SUBNET_ID`
 
 For now, use GitHub Repository secrets (Settings → Secrets → Actions) so the person can able to run the workflow especailly IaC.
 
