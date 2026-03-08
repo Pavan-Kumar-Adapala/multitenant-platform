@@ -1,0 +1,45 @@
+name: Destroy Infrastructure
+
+# Only runs when manually triggered — never automatically
+on:
+  workflow_dispatch:
+
+jobs:
+  destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+
+    env:
+      TF_VAR_statefile_bucket_name: ${{ secrets.STATEFILE_BUCKET_NAME }}
+      TF_VAR_statefile_bucket_region: ${{ secrets.STATEFILE_BUCKET_REGION }}
+      TF_VAR_aws_region: ${{ secrets.AWS_DEFAULT_REGION }}
+      TF_VAR_vpc_id: ${{ secrets.VPC_ID }}
+      TF_VAR_subnet_id: ${{ secrets.SUBNET_ID }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.0
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: infra/environments/dev
+        run: terraform init
+
+      - name: Clean up stale state entries
+        working-directory: infra/environments/dev
+        # These resources cannot be managed by this IAM user.
+        # state rm exits with code 1 if not found — we ignore that with || true
+        run: |
+          terraform state rm aws_iam_service_linked_role.ecs || true
+
+      - name: Terraform Destroy
+        working-directory: infra/environments/dev
+        run: terraform destroy -auto-approve

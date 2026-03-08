@@ -107,85 +107,85 @@ jobs:
           terraform state rm aws_iam_service_linked_role.ecs
           terraform destroy -auto-approve || echo "No existing infrastructure to destroy."
 
-      # - name: Terraform Format
-      #   working-directory: infra/environments/dev
-      #   run: terraform fmt -check
+      - name: Terraform Format
+        working-directory: infra/environments/dev
+        run: terraform fmt -check
 
-      # - name: Terraform Validate
-      #   working-directory: infra/environments/dev
-      #   run: terraform validate
+      - name: Terraform Validate
+        working-directory: infra/environments/dev
+        run: terraform validate
 
-      # - name: Terraform Plan
-      #   working-directory: infra/environments/dev
-      #   run: terraform plan -out=tfplan
+      - name: Terraform Plan
+        working-directory: infra/environments/dev
+        run: terraform plan -out=tfplan
 
-      # - name: Terraform Apply
-      #   working-directory: infra/environments/dev
-      #   run: terraform apply -auto-approve tfplan
+      - name: Terraform Apply
+        working-directory: infra/environments/dev
+        run: terraform apply -auto-approve tfplan
 
-      # # ── 4. Build & push processor Docker image to ECR ──────────────────────
-      # #    (must happen AFTER Terraform creates the ECR repo,
-      # #     BEFORE uploading the zip so ECS has an image to pull)
-      # - name: Configure AWS credentials for ECR login
-      #   uses: aws-actions/configure-aws-credentials@v4
-      #   with:
-      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      #     aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+      # ── 4. Build & push processor Docker image to ECR ──────────────────────
+      #    (must happen AFTER Terraform creates the ECR repo,
+      #     BEFORE uploading the zip so ECS has an image to pull)
+      - name: Configure AWS credentials for ECR login
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
-      # - name: Login to Amazon ECR
-      #   id: ecr_login
-      #   uses: aws-actions/amazon-ecr-login@v2
+      - name: Login to Amazon ECR
+        id: ecr_login
+        uses: aws-actions/amazon-ecr-login@v2
 
-      # - name: Build and push processor image
-      #   run: |
-      #     ECR_URL=$(terraform -chdir=infra/environments/dev output -raw ecr_repository_url)
-      #     IMAGE_TAG="${ECR_URL}:latest"
+      - name: Build and push processor image
+        run: |
+          ECR_URL=$(terraform -chdir=infra/environments/dev output -raw ecr_repository_url)
+          IMAGE_TAG="${ECR_URL}:latest"
 
-      #     echo "Building image → $IMAGE_TAG"
-      #     docker build -t "$IMAGE_TAG" src/processor/
+          echo "Building image → $IMAGE_TAG"
+          docker build -t "$IMAGE_TAG" src/processor/
 
-      #     echo "Pushing image → $IMAGE_TAG"
-      #     docker push "$IMAGE_TAG"
-      #     echo "Image pushed successfully."
+          echo "Pushing image → $IMAGE_TAG"
+          docker push "$IMAGE_TAG"
+          echo "Image pushed successfully."
 
-      #   # ── 5. Upload zip to S3 ────────────────────────────────────────────────
-      # #    Upload first, then apply tags separately — avoids --tagging + --metadata
-      # #    parse conflicts. S3 PutObject event auto-triggers Lambda validator.
-      # - name: Upload zip to S3
-      #   run: |
-      #     BUCKET=$(terraform -chdir=infra/environments/dev output -raw upload_bucket_name)
-      #     FILE="${{ steps.asset.outputs.zip_name }}"
-      #     ORG_ID="${{ github.repository_owner }}"
-      #     S3_KEY="uploads/$FILE"
+        # ── 5. Upload zip to S3 ────────────────────────────────────────────────
+      #    Upload first, then apply tags separately — avoids --tagging + --metadata
+      #    parse conflicts. S3 PutObject event auto-triggers Lambda validator.
+      - name: Upload zip to S3
+        run: |
+          BUCKET=$(terraform -chdir=infra/environments/dev output -raw upload_bucket_name)
+          FILE="${{ steps.asset.outputs.zip_name }}"
+          ORG_ID="${{ github.repository_owner }}"
+          S3_KEY="uploads/$FILE"
 
-      #     # Step 1: plain upload — no extra flags
-      #     echo "Uploading $FILE → s3://$BUCKET/$S3_KEY"
-      #     aws s3 cp "$FILE" "s3://$BUCKET/$S3_KEY"
+          # Step 1: plain upload — no extra flags
+          echo "Uploading $FILE → s3://$BUCKET/$S3_KEY"
+          aws s3 cp "$FILE" "s3://$BUCKET/$S3_KEY"
 
-      #     # Step 2: apply organization-id tag separately (Lambda reads this tag)
-      #     echo "Tagging with organization-id=${ORG_ID}"
-      #     aws s3api put-object-tagging \
-      #       --bucket "$BUCKET" \
-      #       --key "$S3_KEY" \
-      #       --tagging "TagSet=[{Key=organization-id,Value=${ORG_ID}},{Key=uploaded-by,Value=${{ github.actor }}}]"
+          # Step 2: apply organization-id tag separately (Lambda reads this tag)
+          echo "Tagging with organization-id=${ORG_ID}"
+          aws s3api put-object-tagging \
+            --bucket "$BUCKET" \
+            --key "$S3_KEY" \
+            --tagging "TagSet=[{Key=organization-id,Value=${ORG_ID}},{Key=uploaded-by,Value=${{ github.actor }}}]"
 
-      #     echo "Upload + tagging complete. Lambda will be invoked automatically via S3 event."
+          echo "Upload + tagging complete. Lambda will be invoked automatically via S3 event."
 
-      # # ── 6. Wait and show audit trail ───────────────────────────────────────
-      # - name: Wait for Lambda + ECS to run (30 s)
-      #   run: sleep 30
+      # ── 6. Wait and show audit trail ───────────────────────────────────────
+      - name: Wait for Lambda + ECS to run (30 s)
+        run: sleep 30
 
-      # - name: Show audit records from DynamoDB
-      #   run: |
-      #     TABLE=$(terraform -chdir=infra/environments/dev output -raw audit_table_name)
-      #     ORG_ID="${{ github.repository_owner }}"
+      - name: Show audit records from DynamoDB
+        run: |
+          TABLE=$(terraform -chdir=infra/environments/dev output -raw audit_table_name)
+          ORG_ID="${{ github.repository_owner }}"
 
-      #     echo "Querying audit records for org_id=$ORG_ID …"
-      #     aws dynamodb query \
-      #       --table-name "$TABLE" \
-      #       --key-condition-expression "org_id = :oid" \
-      #       --expression-attribute-values "{\":oid\":{\"S\":\"$ORG_ID\"}}" \
-      #       --output table \
-      #       --query 'Items[*].{Event:event_type.S,Status:status.S,Details:details.S,SK:event_sk.S}' \
-      #     || echo "(No records yet — ECS task may still be starting)"
+          echo "Querying audit records for org_id=$ORG_ID …"
+          aws dynamodb query \
+            --table-name "$TABLE" \
+            --key-condition-expression "org_id = :oid" \
+            --expression-attribute-values "{\":oid\":{\"S\":\"$ORG_ID\"}}" \
+            --output table \
+            --query 'Items[*].{Event:event_type.S,Status:status.S,Details:details.S,SK:event_sk.S}' \
+          || echo "(No records yet — ECS task may still be starting)"
