@@ -76,7 +76,8 @@ def main():
     logger.info(f"Container started | org={ORG_ID} | file={S3_KEY}")
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        local_path = os.path.join(tmpdir, "package.zip")
+        file_name = os.path.basename(S3_KEY)
+        local_path = os.path.join(tmpdir, file_name)
 
         try:
             logger.info(f"Downloading s3://{S3_BUCKET}/{S3_KEY}")
@@ -89,7 +90,7 @@ def main():
                        f"{size_mb:.2f} MB | {file_count} files")
 
             write_audit("COMPLETE", "SUCCESS", summary)
-            logger.info(f"Done ✅ — {summary}")
+            logger.info(f"Done — {summary}")
             sys.exit(0)
 
         except Exception as e:
