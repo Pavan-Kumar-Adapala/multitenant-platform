@@ -2,7 +2,35 @@
 
 ## Overview
 
-A shared platform where technical person submit zip files for processing. Each run provisions infra, uploads the file, processes it via Lambda, and audits results in DynamoDB.
+A shared platform where technical teams submit zip files for processing.
+Each run provisions infrastructure, uploads the file, validates it via Lambda, processes it via ECS Fargate, and audits every step in DynamoDB.
+
+## Architecture
+
+```
+GitHub Release (zip attached)
+        │
+        ▼
+GitHub Actions
+  ├── terraform apply  →  S3, Lambda, DynamoDB, ECS Fargate cluster, ECR
+  ├── docker build/push →  ECR
+  └── aws s3 cp  ──────────────────────────►  S3 bucket (uploads/)
+                                                      │
+                                              S3 PutObject event
+                                                      │
+                                                      ▼
+                                             Lambda Validator
+                                             ├── reads org-id tag
+                                             ├── validates size/type
+                                             ├── writes VALIDATED → DynamoDB
+                                             └── ecs:RunTask (Fargate)
+                                                      │
+                                                      ▼
+                                             ECS Fargate (data-processor)
+                                             ├── downloads zip from S3
+                                             ├── logs file contents
+                                             └── writes COMPLETE → DynamoDB
+```
 
 ## AWS Admin (one-time setup)
 
@@ -41,8 +69,16 @@ A shared platform where technical person submit zip files for processing. Each r
       "Action": ["logs:*"],
       "Resource": "arn:aws:logs:*:*:*"
     },
-    { "Effect": "Allow", "Action": ["ecs:*"], "Resource": "*" },
-    { "Effect": "Allow", "Action": ["ecr:*"], "Resource": "*" }
+    {
+      "Effect": "Allow",
+      "Action": ["ecs:*"],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["ecr:*"],
+      "Resource": "*"
+    }
   ]
 }
 ```
