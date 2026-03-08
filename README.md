@@ -40,7 +40,9 @@ A shared platform where technical person submit zip files for processing. Each r
       "Effect": "Allow",
       "Action": ["logs:*"],
       "Resource": "arn:aws:logs:*:*:*"
-    }
+    },
+    { "Effect": "Allow", "Action": ["ecs:*"], "Resource": "*" },
+    { "Effect": "Allow", "Action": ["ecr:*"], "Resource": "*" }
   ]
 }
 ```

@@ -1,7 +1,7 @@
 name: Multitenant Platform Pipeline
 
-# Triggers automatically when anyone publishes a GitHub Release.
-# The zip file must be attached as a release asset.
+# Triggers when anyone publishes a GitHub Release.
+# Attach exactly ONE .zip file as a release asset.
 on:
   release:
     types: [published]
@@ -14,40 +14,42 @@ jobs:
     env:
       TF_VAR_statefile_bucket_name: ${{ secrets.STATEFILE_BUCKET_NAME }}
       TF_VAR_statefile_bucket_region: ${{ secrets.STATEFILE_BUCKET_REGION }}
+      TF_VAR_aws_region: ${{ secrets.AWS_DEFAULT_REGION }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      TF_VAR_aws_region: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── Validate release has exactly one zip asset ──────────────────────────
+      # 1. ----------- Validate release has exactly one .zip asset -----------------
       - name: Check release asset
         id: asset
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ASSETS=$(gh release view "${{ github.event.release.tag_name }}" --json assets -q '.assets')
+          ASSETS=$(gh release view "${{ github.event.release.tag_name }}" \
+                     --json assets -q '.assets')
           COUNT=$(echo "$ASSETS" | jq '[.[] | select(.name | endswith(".zip"))] | length')
 
           if [ "$COUNT" -eq 0 ]; then
-            echo "ERROR: No .zip file found in release assets."
+            echo "ERROR: No .zip file attached to this release."
             exit 1
           fi
           if [ "$COUNT" -gt 1 ]; then
-            echo "ERROR: More than one .zip file attached. Please attach only one."
+            echo "ERROR: More than one .zip attached. Please attach only one."
             exit 1
           fi
 
           ZIP_NAME=$(echo "$ASSETS" | jq -r '[.[] | select(.name | endswith(".zip"))][0].name')
-          ZIP_URL=$(echo "$ASSETS" | jq -r '[.[] | select(.name | endswith(".zip"))][0].url')
+          ZIP_URL=$(echo  "$ASSETS" | jq -r '[.[] | select(.name | endswith(".zip"))][0].url')
 
           echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
           echo "zip_url=$ZIP_URL"   >> $GITHUB_OUTPUT
-          echo "Found zip: $ZIP_NAME"
+          echo "Found zip asset: $ZIP_NAME"
 
-      # ── Download zip from release assets ───────────────────────────────────
+      # ----------- 2. Download zip from release assets -----------
       - name: Download zip asset
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -56,8 +58,9 @@ jobs:
             --pattern "*.zip" \
             --output "${{ steps.asset.outputs.zip_name }}"
           echo "Downloaded: ${{ steps.asset.outputs.zip_name }}"
+          ls -lh "${{ steps.asset.outputs.zip_name }}"
 
-      # ── Terraform ───────────────────────────────────────────────────────────
+      # ----------- 3. Terraform — provision all infrastructure -----------
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -66,10 +69,11 @@ jobs:
 
       - name: Terraform Init
         working-directory: infra/environments/dev
-        run: |
-          terraform init \
-            -backend-config="bucket=${{ secrets.STATEFILE_BUCKET_NAME }}" \
-            -backend-config="region=${{ secrets.STATEFILE_BUCKET_REGION }}"
+        run: terraform init
+        # run: |
+        #   terraform init \
+        #     -backend-config="bucket=${{ secrets.STATEFILE_BUCKET_NAME }}" \
+        #     -backend-config="region=${{ secrets.STATEFILE_BUCKET_REGION }}"
 
       - name: Terraform Validate
         working-directory: infra/environments/dev
@@ -83,23 +87,62 @@ jobs:
         working-directory: infra/environments/dev
         run: terraform apply -auto-approve tfplan
 
-      # ── Upload to S3 & invoke Lambda ────────────────────────────────────────
+      # ----------- 4. Build & push processor Docker image to ECR -----------
+      - name: Configure AWS credentials for ECR
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push processor Docker image
+        run: |
+          ECR_URL=$(terraform -chdir=infra/environments/dev output -raw ecr_repository_url)
+          IMAGE_TAG="${ECR_URL}:latest"
+
+          echo "Building image → $IMAGE_TAG"
+          docker build -t "$IMAGE_TAG" src/processor/
+
+          echo "Pushing image → $IMAGE_TAG"
+          docker push "$IMAGE_TAG"
+          echo "Image pushed successfully."
+
+      # ----------- 5. Upload zip to S3 -----------
+      #    The S3 PutObject event automatically triggers the Lambda validator.
+      #    No direct Lambda invocation needed.
       - name: Upload zip to S3
         run: |
           BUCKET=$(terraform -chdir=infra/environments/dev output -raw upload_bucket_name)
           FILE="${{ steps.asset.outputs.zip_name }}"
-          echo "Uploading $FILE to s3://$BUCKET/uploads/"
-          aws s3 cp "$FILE" "s3://$BUCKET/uploads/$FILE"
+          ORG_ID="${{ github.repository_owner }}"
 
-      - name: Invoke processor Lambda
+          echo "Uploading $FILE → s3://$BUCKET/uploads/$FILE"
+          aws s3 cp "$FILE" "s3://$BUCKET/uploads/$FILE" \
+            --tagging "organization-id=${ORG_ID}" \
+            --metadata "uploaded-by=${{ github.actor }},uploaded-by-name=${{ github.actor }}"
+
+          echo "Upload complete. Lambda is now auto-triggered via S3 event notification."
+
+      # ----------- 6. Wait then show audit trail -----------
+      - name: Wait for Lambda + ECS Fargate to complete (60s)
+        run: sleep 60
+
+      - name: Show audit records from DynamoDB
         run: |
-          FUNCTION=$(terraform -chdir=infra/environments/dev output -raw processor_function_name)
-          FILE_KEY="uploads/${{ steps.asset.outputs.zip_name }}"
-          echo "Invoking: $FUNCTION  key: $FILE_KEY"
-          aws lambda invoke \
-            --function-name "$FUNCTION" \
-            --payload "{\"file_key\": \"$FILE_KEY\"}" \
-            --cli-binary-format raw-in-base64-out \
-            response.json
-          echo "Lambda response:"
-          cat response.json
+          TABLE=$(terraform -chdir=infra/environments/dev output -raw audit_table_name)
+          ORG_ID="${{ github.repository_owner }}"
+
+          echo "Querying DynamoDB audit table: $TABLE"
+          echo "org_id = $ORG_ID"
+          echo "---"
+
+          aws dynamodb query \
+            --table-name "$TABLE" \
+            --key-condition-expression "org_id = :oid" \
+            --expression-attribute-values "{\":oid\":{\"S\":\"$ORG_ID\"}}" \
+            --output table \
+            --query 'Items[*].{Event:event_type.S,Status:status.S,Details:details.S,Timestamp:timestamp.S}' \
+          || echo "(No records yet — ECS Fargate task may still be starting)"
