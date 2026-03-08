@@ -101,12 +101,6 @@ jobs:
             -backend-config="bucket=${{ secrets.STATEFILE_BUCKET_NAME }}" \
             -backend-config="region=${{ secrets.STATEFILE_BUCKET_REGION }}"
 
-      - name: Terraform Destroy (cleanup from previous runs)
-        working-directory: infra/environments/dev
-        run: |
-          terraform state rm aws_iam_service_linked_role.ecs
-          terraform destroy -auto-approve || echo "No existing infrastructure to destroy."
-
       - name: Terraform Format
         working-directory: infra/environments/dev
         run: terraform fmt -check
