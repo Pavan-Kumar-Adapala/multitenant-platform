@@ -21,6 +21,7 @@ Repo info:
 
 The repo contains the below mentioned folders and files
 
+```
 multitenant-platform
 │ .gitignore
 │ image.png
@@ -29,7 +30,7 @@ multitenant-platform
 │
 ├───.github
 │ └───workflows
-└─── destory.yml  
+└─── destory.yml
  process_pipeline.yml
 │
 ├───.venv
@@ -77,6 +78,7 @@ multitenant-platform
 Dockerfile
 process.py
 requirements.txt
+```
 
 ## Architecture
 
