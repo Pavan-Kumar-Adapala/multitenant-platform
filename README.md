@@ -269,3 +269,10 @@ The pipeline will:
 Go to Actions in GitHub and select **Destroy Infrastructure** workflow (destroy.yml). Run the workflow manually by clicking **Run Workflow**
 
 ![Run workflow manually](./runworkflow_manually.png)
+
+---
+
+## Improvement Scope
+
+1. Use automation tools like **Make and n8n** to trigger the pipeline. For example: Whenever you uploaded a zip file in the Google drive folder it triggers the GitHub action workflow.
+2. Use custom python script using API end points to trigger the GitHub action workflow based the file upload in the Data source.
