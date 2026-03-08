@@ -31,7 +31,10 @@ jobs:
 
       - name: Terraform Init
         working-directory: infra/environments/dev
-        run: terraform init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.STATEFILE_BUCKET_NAME }}" \
+            -backend-config="region=${{ secrets.STATEFILE_BUCKET_REGION }}"
 
       - name: Clean up stale state entries
         working-directory: infra/environments/dev
