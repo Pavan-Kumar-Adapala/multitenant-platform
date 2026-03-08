@@ -23,7 +23,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 1. ----------- Validate release has exactly one .zip asset -----------------
+      # ── 1. Validate release has exactly one .zip asset ─────────────────────
+      #    Uses contains(".zip") so filenames like __raw__data.zip__ are matched
       - name: Check release asset
         id: asset
         env:
@@ -31,36 +32,62 @@ jobs:
         run: |
           ASSETS=$(gh release view "${{ github.event.release.tag_name }}" \
                      --json assets -q '.assets')
-          COUNT=$(echo "$ASSETS" | jq '[.[] | select(.name | endswith(".zip"))] | length')
+
+          echo "All release assets:"
+          echo "$ASSETS" | jq -r '.[].name'
+
+          # Match any asset whose name contains ".zip" (handles __raw__name.zip__ etc.)
+          COUNT=$(echo "$ASSETS" | jq '[.[] | select(.name | contains(".zip"))] | length')
 
           if [ "$COUNT" -eq 0 ]; then
-            echo "ERROR: No .zip file attached to this release."
+            echo "ERROR: No .zip file found in release assets."
+            echo "Please attach a .zip file when creating the release."
             exit 1
           fi
           if [ "$COUNT" -gt 1 ]; then
-            echo "ERROR: More than one .zip attached. Please attach only one."
+            echo "ERROR: More than one .zip found. Please attach only one."
             exit 1
           fi
 
-          ZIP_NAME=$(echo "$ASSETS" | jq -r '[.[] | select(.name | endswith(".zip"))][0].name')
-          ZIP_URL=$(echo  "$ASSETS" | jq -r '[.[] | select(.name | endswith(".zip"))][0].url')
+          # Original asset name (may have messy prefix/suffix like __raw__data.zip__)
+          ZIP_ORIGINAL=$(echo "$ASSETS" | jq -r '[.[] | select(.name | contains(".zip"))][0].name')
+          ZIP_URL=$(echo  "$ASSETS" | jq -r '[.[] | select(.name | contains(".zip"))][0].url')
 
-          echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
-          echo "zip_url=$ZIP_URL"   >> $GITHUB_OUTPUT
-          echo "Found zip asset: $ZIP_NAME"
+          # Normalize: strip everything except the clean base.zip portion
+          # e.g. "__raw_____data.zip__" → "data.zip"
+          ZIP_NAME=$(echo "$ZIP_ORIGINAL" | sed 's/^[^a-zA-Z0-9]*//' | sed 's/[^a-zA-Z0-9._-]*$//')
 
-      # ----------- 2. Download zip from release assets -----------
+          echo "Original asset name : $ZIP_ORIGINAL"
+          echo "Normalized filename : $ZIP_NAME"
+
+          echo "zip_original=$ZIP_ORIGINAL" >> $GITHUB_OUTPUT
+          echo "zip_name=$ZIP_NAME"         >> $GITHUB_OUTPUT
+          echo "zip_url=$ZIP_URL"           >> $GITHUB_OUTPUT
+
+      # ── 2. Download zip from release assets ────────────────────────────────
+      #    Downloads by exact original name, then renames to the clean filename
       - name: Download zip asset
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release download "${{ github.event.release.tag_name }}" \
-            --pattern "*.zip" \
-            --output "${{ steps.asset.outputs.zip_name }}"
-          echo "Downloaded: ${{ steps.asset.outputs.zip_name }}"
-          ls -lh "${{ steps.asset.outputs.zip_name }}"
+          ORIGINAL="${{ steps.asset.outputs.zip_original }}"
+          CLEAN="${{ steps.asset.outputs.zip_name }}"
 
-      # ----------- 3. Terraform — provision all infrastructure -----------
+          echo "Downloading: $ORIGINAL"
+          gh release download "${{ github.event.release.tag_name }}" \
+            --pattern "$ORIGINAL" \
+            --output "$ORIGINAL"
+
+          # Rename to clean filename if different
+          if [ "$ORIGINAL" != "$CLEAN" ]; then
+            mv "$ORIGINAL" "$CLEAN"
+            echo "Renamed: $ORIGINAL → $CLEAN"
+          fi
+
+          echo "Ready: $CLEAN"
+          ls -lh "$CLEAN"
+
+      # ── 3. Terraform — provision all infrastructure ─────────────────────────
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -69,11 +96,10 @@ jobs:
 
       - name: Terraform Init
         working-directory: infra/environments/dev
-        run: terraform init
-        # run: |
-        #   terraform init \
-        #     -backend-config="bucket=${{ secrets.STATEFILE_BUCKET_NAME }}" \
-        #     -backend-config="region=${{ secrets.STATEFILE_BUCKET_REGION }}"
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.STATEFILE_BUCKET_NAME }}" \
+            -backend-config="region=${{ secrets.STATEFILE_BUCKET_REGION }}"
 
       - name: Terraform Validate
         working-directory: infra/environments/dev
@@ -87,8 +113,10 @@ jobs:
         working-directory: infra/environments/dev
         run: terraform apply -auto-approve tfplan
 
-      # ----------- 4. Build & push processor Docker image to ECR -----------
-      - name: Configure AWS credentials for ECR
+      # ── 4. Build & push processor Docker image to ECR ──────────────────────
+      #    (must happen AFTER Terraform creates the ECR repo,
+      #     BEFORE uploading the zip so ECS has an image to pull)
+      - name: Configure AWS credentials for ECR login
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -96,9 +124,10 @@ jobs:
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
       - name: Login to Amazon ECR
+        id: ecr_login
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push processor Docker image
+      - name: Build and push processor image
         run: |
           ECR_URL=$(terraform -chdir=infra/environments/dev output -raw ecr_repository_url)
           IMAGE_TAG="${ECR_URL}:latest"
@@ -110,39 +139,36 @@ jobs:
           docker push "$IMAGE_TAG"
           echo "Image pushed successfully."
 
-      # ----------- 5. Upload zip to S3 -----------
-      #    The S3 PutObject event automatically triggers the Lambda validator.
-      #    No direct Lambda invocation needed.
+      # ── 5. Upload zip to S3 ────────────────────────────────────────────────
+      #    S3 PutObject event automatically invokes the Lambda validator.
+      #    No direct Lambda call needed — the event notification handles it.
       - name: Upload zip to S3
         run: |
           BUCKET=$(terraform -chdir=infra/environments/dev output -raw upload_bucket_name)
           FILE="${{ steps.asset.outputs.zip_name }}"
-          ORG_ID="${{ github.repository_owner }}"
+          ORG_ID="${{ github.repository_owner }}"   # use GitHub org as org-id
 
           echo "Uploading $FILE → s3://$BUCKET/uploads/$FILE"
           aws s3 cp "$FILE" "s3://$BUCKET/uploads/$FILE" \
             --tagging "organization-id=${ORG_ID}" \
             --metadata "uploaded-by=${{ github.actor }},uploaded-by-name=${{ github.actor }}"
 
-          echo "Upload complete. Lambda is now auto-triggered via S3 event notification."
+          echo "Upload complete. Lambda validator will be invoked automatically via S3 event."
 
-      # ----------- 6. Wait then show audit trail -----------
-      - name: Wait for Lambda + ECS Fargate to complete (60s)
-        run: sleep 60
+      # ── 6. Wait and show audit trail ───────────────────────────────────────
+      - name: Wait for Lambda + ECS to run (30 s)
+        run: sleep 30
 
       - name: Show audit records from DynamoDB
         run: |
           TABLE=$(terraform -chdir=infra/environments/dev output -raw audit_table_name)
           ORG_ID="${{ github.repository_owner }}"
 
-          echo "Querying DynamoDB audit table: $TABLE"
-          echo "org_id = $ORG_ID"
-          echo "---"
-
+          echo "Querying audit records for org_id=$ORG_ID …"
           aws dynamodb query \
             --table-name "$TABLE" \
             --key-condition-expression "org_id = :oid" \
             --expression-attribute-values "{\":oid\":{\"S\":\"$ORG_ID\"}}" \
             --output table \
-            --query 'Items[*].{Event:event_type.S,Status:status.S,Details:details.S,Timestamp:timestamp.S}' \
-          || echo "(No records yet — ECS Fargate task may still be starting)"
+            --query 'Items[*].{Event:event_type.S,Status:status.S,Details:details.S,SK:event_sk.S}' \
+          || echo "(No records yet — ECS task may still be starting)"
