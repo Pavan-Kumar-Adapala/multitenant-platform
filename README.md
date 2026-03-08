@@ -1,9 +1,82 @@
-# multitenant-platform
+# Multitenant Platform
 
 ## Overview
 
-A shared platform where technical teams submit zip files for processing.
-Each run provisions infrastructure, uploads the file, validates it via Lambda, processes it via ECS Fargate, and audits every step in DynamoDB.
+A shared platform where technical teams submit zip files for processing. Each run provisions infrastructure, uploads the file, validates it via Lambda, processes it via ECS Fargate, and audits every step in DynamoDB.
+
+Technical stack:
+
+AWS:
+
+- S3 Storage: terraform statefile and upload zip file
+- ECR: container repository to store processor Docker image
+- S3 event trigger -> lambda
+- Lambda: used to validate the uploded file and trigger ECS task
+- ECS Fargate: containerized workload (Docker) to process the data
+- DynamoDB: persistant database to store audit logs
+
+Git, GitHub Actions
+
+Repo info:
+
+The repo contains the below mentioned folders and files
+
+multitenant-platform
+│ .gitignore
+│ image.png
+│ README.md
+│ runworkflow_manually.png
+│
+├───.github
+│ └───workflows
+└─── destory.yml  
+ process_pipeline.yml
+│
+├───.venv
+│
+├───docs
+├───infra
+│ │ version.tf
+│ │
+│ ├───environments
+│ │ └───dev
+│ │ main.tf
+│ │ outputs.tf
+│ │ provider.tf
+│ │ state.tf
+│ │ terraform.tfvars
+│ │ variables.tf
+│ │
+│ └───modules
+│ ├───dynamodb
+│ │ main.tf
+│ │ outputs.tf
+│ │ variables.tf
+│ │
+│ ├───iam
+│ │ main.tf
+│ │ outputs.tf
+│ │ variables.tf
+│ │
+│ ├───lambda
+│ │ main.tf
+│ │ outputs.tf
+│ │ variables.tf
+│ │
+│ └───s3
+│ main.tf
+│ outputs.tf
+│ variables.tf
+│
+└───src
+├───lambda
+└───validator
+│ handler.py
+│
+└───processor
+Dockerfile
+process.py
+requirements.txt
 
 ## Architecture
 
@@ -32,7 +105,11 @@ GitHub Actions
                                              └── writes COMPLETE → DynamoDB
 ```
 
+---
+
 ## AWS Admin (one-time setup)
+
+overview:
 
 - Created group `multitenant-platform-company-developers` (add least-privilege permissions — see below)
 - Created S3 bucket for Terraform state: `multitenant-platform-terraform-statefiles` in `us-east-1`
@@ -91,21 +168,11 @@ GitHub Actions
       ],
       "Resource": "*"
     }
-    {
-        "Effect": "Allow",
-        "Action": ["iam:CreateServiceLinkedRole"],
-        "Resource": "arn:aws:iam::*:role/aws-service-role/ecs.amazonaws.com/*",
-        "Condition": {
-            "StringEquals": {
-                "iam:AWSServiceName": "ecs.amazonaws.com"
-            }
-        }
-    }
   ]
 }
+```
 
 Create Service Linked Role for ECS (AWSServiceRoleForECS):
-
 
 Admin steps in AWS Console:
 
@@ -119,6 +186,17 @@ Admin steps in AWS Console:
 
     Click Next through the rest and Create role
 
+```json
+{
+  "Effect": "Allow",
+  "Action": ["iam:CreateServiceLinkedRole"],
+  "Resource": "arn:aws:iam::*:role/aws-service-role/ecs.amazonaws.com/*",
+  "Condition": {
+    "StringEquals": {
+      "iam:AWSServiceName": "ecs.amazonaws.com"
+    }
+  }
+}
 ```
 
 - In GitHub Repo settings, **Actions secrets and variables** section created the below secrets.
@@ -127,15 +205,18 @@ Admin steps in AWS Console:
   - STATEFILE_BUCKET_NAME
   - STATEFILE_BUCKET_REGION
 
-Upon the request, admin
+Note:
 
-- Will create user based on the request
+Upon the request, admin will create user based on the request
 
-  Example:
-  - user: multitenant-platform-company-pavan
-  - Adding user to "multitenant-platform-company-developers" group
-  - "created Access keys" to user for creating AWS services using AWS CLI
-  - The AWS Security credentials will shared to developer
+Example:
+
+- user: multitenant-platform-company-pavan
+- Adding user to "multitenant-platform-company-developers" group
+- "created Access keys" to user for creating AWS services using AWS CLI
+- The AWS Security credentials will shared to developer / technical person
+
+---
 
 ## Developers / Data scientists (how to run)
 
@@ -146,33 +227,41 @@ You need from the AWS Admin (Contact could admin asking the following details):
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 - `AWS_DEFAULT_REGION`
-- Technical person need to make request:
 
-        I am  <name> and <company> <your role> and  <project>. What kind of support he/her need?
+For now, use GitHub Repository secrets (Settings → Secrets → Actions) so the person can able to run the workflow especailly IaC.
 
-### Run the pipeline
+Note:
 
-1. Go to **Actions** → **Multitenant Platform Pipeline** → **Run workflow**
-2. Enter the path to your zip file in the repo (e.g. `data/mymodel.zip`)
-3. Click **Run workflow**
+Technical person need to make request:
 
-The pipeline will:
-
-1. Provision infrastructure (S3 bucket, Lambda, DynamoDB) via Terraform
-2. Upload your zip file to S3
-3. Trigger the Lambda to validate and process the file
-4. Store the audit record in DynamoDB
+- I am <name> and <your role> and <project>. What kind of support he/her need?
 
 Response from Admin:
 
 - Created user (username) and add to the group (multitenant-platform-company-developers) and will provide (Access key ID, Secret access key) also Region.
 
-How the techinal person use the platform (multitenant-platform)?
+---
 
-Inputs need to trigger pipeline
+## How to Run the Pipeline
 
-1. zip file path (uploading to this repo or using variables option in github actions)
-2. AWS Access key ID
-3. AWS Secret access key (2 and 3 are the secrets independent of other users so this pipeline trigger based on the user secrets and file path)
+1. Go to **Releases** → **Draft a new release**
+2. Set a tag (e.g. `v1.0.0`) and title
+3. **Attach your `.zip` file** as a release asset
+4. Click **Publish release** — the workflow starts automatically
 
-The pipeline will create infra to upload file and validate and process Execution and finally audit store in DynamoDB.
+The pipeline will:
+
+1. Provision all AWS infrastructure via Terraform
+2. Build and push the processor Docker image to ECR
+3. Upload your zip to S3 (tagged with your GitHub org as `organization-id`)
+4. S3 event auto-triggers Lambda validator
+5. Lambda validates and launches an ECS Fargate task
+6. Audit records written to DynamoDB at every step
+
+---
+
+## Teardown
+
+Go to Actions in GitHub and select **Destroy Infrastructure** workflow (destroy.yml). Run the workflow manually by clicking **Run Workflow**
+
+![Run workflow manually](./runworkflow_manually.png)
