@@ -91,6 +91,16 @@ GitHub Actions
       ],
       "Resource": "*"
     }
+    {
+        "Effect": "Allow",
+        "Action": ["iam:CreateServiceLinkedRole"],
+        "Resource": "arn:aws:iam::*:role/aws-service-role/ecs.amazonaws.com/*",
+        "Condition": {
+            "StringEquals": {
+                "iam:AWSServiceName": "ecs.amazonaws.com"
+            }
+        }
+    }
   ]
 }
 ```
